@@ -32,8 +32,11 @@ entity "Livro" as livro {
 entity "Ciclo de leitura" as ciclo {
   * identificador
   --
-  * data de início
-  * data de fim
+  * nome {até 120 caracteres, não vazio}
+  * data de início {DATE, data civil}
+  * data de fim {DATE, data civil}
+  * situação {PLANEJADO, EM_ANDAMENTO, CONCLUIDO; padrão PLANEJADO}
+  orientações {até 2000 caracteres, opcionais}
 }
 
 entity "Encontro" as encontro {
@@ -89,6 +92,12 @@ note as normalizacao
   Sem percentual de leitura ou contador redundante.
   A inscrição em encontro independe da participação no ciclo.
   Datas de ciclo obrigatórias, com fim maior ou igual ao início.
+  Datas civis não são instantes UTC e não mudam de dia por fuso.
+  Situação é explícita, nunca derivada automaticamente das datas.
+  Uma obra pode possuir vários ciclos planejados ou concluídos.
+  No máximo um ciclo EM_ANDAMENTO em toda a instalação:
+  índice único parcial sobre a constante 1, apenas nessa situação.
+  Essa unicidade global não torna livro ou data exclusivos.
   Um único clube: nenhuma entidade clube ou chave de locatário.
 end note
 

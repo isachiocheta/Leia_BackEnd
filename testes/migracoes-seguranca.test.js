@@ -8,6 +8,7 @@ const migracoes = [
   ['sessões', require('../database/migracoes/20261030011000-criar-sessoes')],
   ['gêneros', require('../database/migracoes/20261030020000-ajustar-generos')],
   ['livros', require('../database/migracoes/20261030021000-completar-livros')],
+  ['ciclos de leitura', require('../database/migracoes/20261030030000-completar-ciclos-leitura')],
 ];
 
 const ambienteSeguro = {

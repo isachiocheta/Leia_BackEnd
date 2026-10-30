@@ -15,7 +15,8 @@ const migracaoUsuarios = '20261030010000-completar-usuarios.js';
 const migracaoSessoes = '20261030011000-criar-sessoes.js';
 const migracaoGeneros = '20261030020000-ajustar-generos.js';
 const migracaoLivros = '20261030021000-completar-livros.js';
-const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros];
+const migracaoCiclos = '20261030030000-completar-ciclos-leitura.js';
+const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros, migracaoCiclos];
 let conexao;
 
 function executarCli(comando, argumentos = [], codigo = 0) {
@@ -59,6 +60,27 @@ async function conferirSchemaAtual() {
   for (const campo of ['ano_publicacao', 'descricao', 'capa_url']) {
     assert.equal(livros[campo].allowNull, true);
   }
+  const ciclos = await conexao.getQueryInterface().describeTable('ciclos_leitura');
+  assert.equal(ciclos.nome.type, 'CHARACTER VARYING(120)');
+  assert.equal(ciclos.nome.allowNull, false);
+  assert.equal(ciclos.nome.defaultValue, null);
+  assert.equal(ciclos.orientacoes.allowNull, true);
+  assert.equal(ciclos.data_inicio.type, 'DATE');
+  assert.equal(ciclos.data_fim.type, 'DATE');
+  assert.equal(ciclos.situacao.allowNull, false);
+  assert.match(String(ciclos.situacao.defaultValue), /PLANEJADO/);
+  const [indices] = await conexao.query(`
+    SELECT i.indisunique, pg_get_expr(i.indexprs, i.indrelid) AS expressao,
+           pg_get_expr(i.indpred, i.indrelid) AS predicado
+      FROM pg_catalog.pg_index i
+      JOIN pg_catalog.pg_class c ON c.oid = i.indexrelid
+     WHERE c.relname = 'ciclos_leitura_unico_em_andamento'
+       AND i.indrelid = 'ciclos_leitura'::regclass
+  `);
+  assert.equal(indices.length, 1);
+  assert.equal(indices[0].indisunique, true);
+  assert.equal(indices[0].expressao, '1');
+  assert.match(indices[0].predicado, /situacao.*EM_ANDAMENTO/);
   assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas);
 }
 
@@ -103,6 +125,7 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
   const estruturaAnterior = await conexao.getQueryInterface().describeTable('usuarios');
   const generosAnteriores = await conexao.getQueryInterface().describeTable('generos');
   const livrosAnteriores = await conexao.getQueryInterface().describeTable('livros');
+  const ciclosAnteriores = await conexao.getQueryInterface().describeTable('ciclos_leitura');
 
   // Sem hashes legados, a evolução deve falhar atomicamente, sem inventar senha.
   validarDestinoTeste(conexao);
@@ -148,10 +171,45 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generos[0].id] });
   }
 
+  executarCli('db:migrate', ['--to', migracaoLivros]);
+  validarDestinoTeste(conexao);
+  const [generosCiclo] = await conexao.query(`
+    INSERT INTO generos (nome, criado_em, atualizado_em)
+    VALUES ('Gênero do ciclo legado', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `);
+  const [obras] = await conexao.query(`
+    INSERT INTO livros (titulo, autor, genero_id, total_paginas, criado_em, atualizado_em)
+    VALUES ('Obra do ciclo', 'Autor', $1, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [generosCiclo[0].id] });
+  const [legadosCiclo] = await conexao.query(`
+    INSERT INTO ciclos_leitura (livro_id, data_inicio, data_fim, criado_em, atualizado_em)
+    VALUES ($1, '2026-10-01', '2026-10-31', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [obras[0].id] });
+
+  try {
+    executarCli('db:migrate', [], 1);
+    assert.deepEqual(await conexao.getQueryInterface().describeTable('ciclos_leitura'), ciclosAnteriores);
+    assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 5));
+    const [mantidos] = await conexao.query('SELECT data_inicio::text FROM ciclos_leitura WHERE id = $1', {
+      bind: [legadosCiclo[0].id],
+    });
+    assert.equal(mantidos[0].data_inicio, '2026-10-01');
+  } finally {
+    validarDestinoTeste(conexao);
+    await conexao.query('DELETE FROM ciclos_leitura WHERE id = $1', { bind: [legadosCiclo[0].id] });
+    await conexao.query('DELETE FROM livros WHERE id = $1', { bind: [obras[0].id] });
+    await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generosCiclo[0].id] });
+  }
+
   executarCli('db:migrate');
   await conferirSchemaAtual();
 
-  // O catálogo é revertido antes de usuários/sessões; nenhum ciclo perde sua FK.
+  // Ciclos são revertidos antes do catálogo, preservando as FKs e datas originais.
+  executarCli('db:migrate:undo');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('ciclos_leitura'), ciclosAnteriores);
+  const [indicesAposRollback] = await conexao.query("SELECT to_regclass('ciclos_leitura_unico_em_andamento') AS indice");
+  assert.equal(indicesAposRollback[0].indice, null);
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 5));
   executarCli('db:migrate:undo');
   assert.deepEqual(await conexao.getQueryInterface().describeTable('livros'), livrosAnteriores);
   assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 4));

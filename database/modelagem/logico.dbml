@@ -67,15 +67,31 @@ Table livros {
 
 Table ciclos_leitura {
   id integer [pk, increment, not null]
+  nome varchar(120) [not null]
   livro_id integer [not null]
-  data_inicio date [not null]
-  data_fim date [not null]
+  data_inicio date [not null, note: 'Data civil; DATEONLY no model, sem conversão UTC.']
+  data_fim date [not null, note: 'Data civil; DATEONLY no model, sem conversão UTC.']
+  orientacoes varchar(2000)
+  situacao varchar(20) [not null, default: 'PLANEJADO', note: 'Explícita; nunca derivada das datas.']
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
 
   checks {
+    `nome ~ '[^[:space:]]'` [name: 'ciclos_leitura_nome_nao_vazio']
     `data_fim >= data_inicio` [name: 'ciclos_leitura_periodo_valido']
+    `situacao IN ('PLANEJADO', 'EM_ANDAMENTO', 'CONCLUIDO')` [name: 'ciclos_leitura_situacao_valida']
   }
+
+  // DBML não suporta o predicado WHERE de índices parciais. O SQL exato fica
+  // na nota, sem declarar um índice único incondicional ou unique(livro_id).
+  Note: '''
+    Índice único parcial global, definido pela migration:
+    CREATE UNIQUE INDEX ciclos_leitura_unico_em_andamento
+      ON ciclos_leitura ((1)) WHERE situacao = 'EM_ANDAMENTO';
+    Garante no máximo um ciclo EM_ANDAMENTO em toda a instalação.
+    A mesma obra pode possuir vários ciclos; planejados e concluídos coexistem.
+    Nenhum indicador calculado é armazenado.
+  '''
 }
 
 Table encontros {

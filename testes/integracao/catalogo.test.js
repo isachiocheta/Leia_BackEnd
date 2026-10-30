@@ -298,8 +298,8 @@ describe('Gêneros e livros no PostgreSQL de teste', { timeout: 20_000 }, () => 
       const opcoes = { transaction };
       const genero = await Genero.create({ nome: 'Obra e ciclos' }, opcoes);
       const livro = await Livro.create({ titulo: 'Uma única obra', autor: 'Autora', generoId: genero.id, totalPaginas: 250 }, opcoes);
-      const primeiro = await CicloLeitura.create({ livroId: livro.id, dataInicio: '2026-01-01', dataFim: '2026-01-31' }, opcoes);
-      const segundo = await CicloLeitura.create({ livroId: livro.id, dataInicio: '2026-06-01', dataFim: '2026-06-30' }, opcoes);
+      const primeiro = await CicloLeitura.create({ nome: 'Primeiro ciclo da obra', livroId: livro.id, dataInicio: '2026-01-01', dataFim: '2026-01-31' }, opcoes);
+      const segundo = await CicloLeitura.create({ nome: 'Segundo ciclo da obra', livroId: livro.id, dataInicio: '2026-06-01', dataFim: '2026-06-30' }, opcoes);
       const comCiclos = await Livro.findByPk(livro.id, { include: ['ciclosLeitura'], transaction });
 
       assert.equal(primeiro.livroId, segundo.livroId);
