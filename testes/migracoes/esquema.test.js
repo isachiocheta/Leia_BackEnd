@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const caminho = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { scryptSync } = require('node:crypto');
 const { after, before, test } = require('node:test');
 const { criarConexao } = require('../../database/conexao');
 const { validarBancoTeste } = require('../../configuracao/banco');
@@ -17,7 +18,12 @@ const migracaoGeneros = '20261030020000-ajustar-generos.js';
 const migracaoLivros = '20261030021000-completar-livros.js';
 const migracaoCiclos = '20261030030000-completar-ciclos-leitura.js';
 const migracaoEncontros = '20261030040000-completar-encontros.js';
-const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros, migracaoCiclos, migracaoEncontros];
+const migracaoParticipacoes = '20261030050000-completar-participacoes-leitura.js';
+const migracaoInscricoes = '20261030051000-ajustar-inscricoes-encontro.js';
+const migracoesConhecidas = [
+  migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros,
+  migracaoLivros, migracaoCiclos, migracaoEncontros, migracaoParticipacoes, migracaoInscricoes,
+];
 let conexao;
 
 function executarCli(comando, argumentos = [], codigo = 0) {
@@ -42,7 +48,19 @@ async function migracoesAplicadas() {
   return linhas.map((linha) => linha.name);
 }
 
-async function conferirSchemaAtual() {
+async function conferirFkInscricao(acao) {
+  const [chaves] = await conexao.query(`
+    SELECT conname, confdeltype FROM pg_catalog.pg_constraint
+     WHERE conrelid = 'inscricoes_encontro'::regclass AND contype = 'f'
+     ORDER BY conname
+  `);
+  assert.deepEqual(chaves, [
+    { conname: 'inscricoes_encontro_encontro_id_fkey', confdeltype: acao },
+    { conname: 'inscricoes_encontro_usuario_id_fkey', confdeltype: 'r' },
+  ]);
+}
+
+async function conferirSchemaAtual(migracoesEsperadas = migracoesConhecidas) {
   const usuarios = await conexao.getQueryInterface().describeTable('usuarios');
   assert.equal(usuarios.nome.type, 'CHARACTER VARYING(100)');
   for (const coluna of ['senha_hash', 'situacao', 'session_version']) {
@@ -96,7 +114,25 @@ async function conferirSchemaAtual() {
   assert.deepEqual(indicesEncontros.map((indice) => indice.name).sort(), [
     'encontros_ciclo_inicio_indice', 'encontros_inicio_indice', 'encontros_pkey',
   ]);
-  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas);
+  if (migracoesEsperadas.includes(migracaoParticipacoes)) {
+    const participacoes = await conexao.getQueryInterface().describeTable('participacoes_leitura');
+    assert.equal(participacoes.ciclo_id.allowNull, false);
+    assert.equal(participacoes.ciclo_leitura_id, undefined);
+    assert.equal(participacoes.pagina_atual.type, 'INTEGER');
+    assert.equal(participacoes.pagina_atual.allowNull, false);
+    assert.equal(Number(participacoes.pagina_atual.defaultValue), 0);
+    assert.equal(participacoes.concluida_em.type, 'TIMESTAMP WITH TIME ZONE');
+    assert.equal(participacoes.concluida_em.allowNull, true);
+    const indices = await conexao.getQueryInterface().showIndex('participacoes_leitura');
+    assert.deepEqual(indices.map((indice) => indice.name).sort(), [
+      'participacoes_leitura_pkey', 'participacoes_leitura_usuario_ciclo_unico',
+    ]);
+    const unico = indices.find((indice) => indice.name === 'participacoes_leitura_usuario_ciclo_unico');
+    assert.equal(unico.unique, true);
+    assert.deepEqual(unico.fields.map((campo) => campo.attribute), ['usuario_id', 'ciclo_id']);
+  }
+  await conferirFkInscricao(migracoesEsperadas.includes(migracaoInscricoes) ? 'c' : 'r');
+  assert.deepEqual(await migracoesAplicadas(), migracoesEsperadas);
 }
 
 before(async () => {
@@ -142,6 +178,8 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
   const livrosAnteriores = await conexao.getQueryInterface().describeTable('livros');
   const ciclosAnteriores = await conexao.getQueryInterface().describeTable('ciclos_leitura');
   const encontrosAnteriores = await conexao.getQueryInterface().describeTable('encontros');
+  const participacoesAnteriores = await conexao.getQueryInterface().describeTable('participacoes_leitura');
+  const inscricoesAnteriores = await conexao.getQueryInterface().describeTable('inscricoes_encontro');
 
   // Sem hashes legados, a evolução deve falhar atomicamente, sem inventar senha.
   validarDestinoTeste(conexao);
@@ -238,8 +276,8 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
   `, { bind: [ciclosEncontro[0].id] });
 
   try {
-    executarCli('db:migrate');
-    await conferirSchemaAtual();
+    executarCli('db:migrate', ['--to', migracaoEncontros]);
+    await conferirSchemaAtual(migracoesConhecidas.slice(0, 7));
     const [preservados] = await conexao.query(`
       SELECT id, ciclo_id, titulo, local, descricao, situacao,
              EXTRACT(EPOCH FROM inicio_em)::text AS instante
@@ -263,7 +301,7 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     });
     assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 6));
 
-    executarCli('db:migrate');
+    executarCli('db:migrate', ['--to', migracaoEncontros]);
     const [reaplicados] = await conexao.query('SELECT EXTRACT(EPOCH FROM inicio_em)::text AS instante FROM encontros WHERE id = $1', {
       bind: [encontrosLegados[0].id],
     });
@@ -276,7 +314,90 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generosEncontro[0].id] });
   }
 
-  // A ordem inversa começa por encontros, conservando os schemas anteriores.
+  // Exercita as junções com registros existentes, sem inventar credenciais ou
+  // substituir as unicidades e FKs protegidas pelas migrations anteriores.
+  validarDestinoTeste(conexao);
+  const sal = 'leia-migrations-adesoes';
+  const hash = `scrypt$${sal}$${scryptSync('entrada de teste', sal, 32).toString('hex')}`;
+  const [usuariosAdesao] = await conexao.query(`
+    INSERT INTO usuarios (nome, email, senha_hash, criado_em, atualizado_em)
+    VALUES ('Leitor da adesão', 'adesao@escola.exemplo', $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [hash] });
+  const [generosAdesao] = await conexao.query(`
+    INSERT INTO generos (nome, criado_em, atualizado_em)
+    VALUES ('Gênero da adesão', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `);
+  const [livrosAdesao] = await conexao.query(`
+    INSERT INTO livros (titulo, autor, genero_id, total_paginas, criado_em, atualizado_em)
+    VALUES ('Obra da adesão', 'Autor', $1, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [generosAdesao[0].id] });
+  const [ciclosAdesao] = await conexao.query(`
+    INSERT INTO ciclos_leitura (nome, livro_id, data_inicio, data_fim, criado_em, atualizado_em)
+    VALUES ('Ciclo da adesão', $1, '2026-11-01', '2026-11-30', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [livrosAdesao[0].id] });
+  const [encontrosAdesao] = await conexao.query(`
+    INSERT INTO encontros (ciclo_id, titulo, inicio_em, local, criado_em, atualizado_em)
+    VALUES ($1, 'Encontro da adesão', '2026-11-10T10:30:00-03:00', 'Biblioteca', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [ciclosAdesao[0].id] });
+  const [participacoesLegadas] = await conexao.query(`
+    INSERT INTO participacoes_leitura (usuario_id, ciclo_leitura_id, criado_em, atualizado_em)
+    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [usuariosAdesao[0].id, ciclosAdesao[0].id] });
+  const [inscricoesLegadas] = await conexao.query(`
+    INSERT INTO inscricoes_encontro (usuario_id, encontro_id, criado_em, atualizado_em)
+    VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [usuariosAdesao[0].id, encontrosAdesao[0].id] });
+
+  try {
+    executarCli('db:migrate');
+    await conferirSchemaAtual();
+    const [participacoes] = await conexao.query(`
+      SELECT id, usuario_id, ciclo_id, pagina_atual, concluida_em FROM participacoes_leitura WHERE id = $1
+    `, { bind: [participacoesLegadas[0].id] });
+    assert.deepEqual(participacoes[0], {
+      id: participacoesLegadas[0].id, usuario_id: usuariosAdesao[0].id,
+      ciclo_id: ciclosAdesao[0].id, pagina_atual: 0, concluida_em: null,
+    });
+    const [inscricoes] = await conexao.query('SELECT id, usuario_id, encontro_id FROM inscricoes_encontro WHERE id = $1', {
+      bind: [inscricoesLegadas[0].id],
+    });
+    assert.deepEqual(inscricoes[0], {
+      id: inscricoesLegadas[0].id, usuario_id: usuariosAdesao[0].id, encontro_id: encontrosAdesao[0].id,
+    });
+
+    executarCli('db:migrate:undo');
+    await conferirFkInscricao('r');
+    assert.deepEqual(await conexao.getQueryInterface().describeTable('inscricoes_encontro'), inscricoesAnteriores);
+    executarCli('db:migrate:undo');
+    assert.deepEqual(await conexao.getQueryInterface().describeTable('participacoes_leitura'), participacoesAnteriores);
+    const [restauradas] = await conexao.query('SELECT id, usuario_id, ciclo_leitura_id FROM participacoes_leitura WHERE id = $1', {
+      bind: [participacoesLegadas[0].id],
+    });
+    assert.deepEqual(restauradas[0], {
+      id: participacoesLegadas[0].id, usuario_id: usuariosAdesao[0].id, ciclo_leitura_id: ciclosAdesao[0].id,
+    });
+    assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 7));
+
+    executarCli('db:migrate');
+    await conferirSchemaAtual();
+  } finally {
+    validarDestinoTeste(conexao);
+    await conexao.query('DELETE FROM inscricoes_encontro WHERE id = $1', { bind: [inscricoesLegadas[0].id] });
+    await conexao.query('DELETE FROM participacoes_leitura WHERE id = $1', { bind: [participacoesLegadas[0].id] });
+    await conexao.query('DELETE FROM encontros WHERE id = $1', { bind: [encontrosAdesao[0].id] });
+    await conexao.query('DELETE FROM ciclos_leitura WHERE id = $1', { bind: [ciclosAdesao[0].id] });
+    await conexao.query('DELETE FROM livros WHERE id = $1', { bind: [livrosAdesao[0].id] });
+    await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generosAdesao[0].id] });
+    await conexao.query('DELETE FROM usuarios WHERE id = $1', { bind: [usuariosAdesao[0].id] });
+  }
+
+  // A ordem inversa começa pelas junções, conservando os schemas anteriores.
+  executarCli('db:migrate:undo');
+  await conferirFkInscricao('r');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('inscricoes_encontro'), inscricoesAnteriores);
+  executarCli('db:migrate:undo');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('participacoes_leitura'), participacoesAnteriores);
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 7));
   executarCli('db:migrate:undo');
   assert.deepEqual(await conexao.getQueryInterface().describeTable('encontros'), encontrosAnteriores);
   assert.deepEqual((await conexao.getQueryInterface().showIndex('encontros')).map((indice) => indice.name), ['encontros_pkey']);

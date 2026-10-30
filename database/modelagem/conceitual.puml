@@ -52,6 +52,8 @@ entity "Encontro" as encontro {
 entity "Participação de leitura" as participacao {
   * identificador
   --
+  * página atual {inteiro maior ou igual a zero; padrão zero}
+  concluída em {instante com fuso, opcional}
   par usuário / ciclo {único}
 }
 
@@ -64,10 +66,26 @@ entity "Inscrição em encontro" as inscricao {
 genero ||--o{ livro : classifica
 livro ||--o{ ciclo : fundamenta
 ciclo ||--o{ encontro : organiza
-usuario ||--o{ participacao : participa
+usuario ||--o{ participacao : adere
 ciclo ||--o{ participacao : recebe
-usuario ||--o{ inscricao : inscreve-se
+usuario ||--o{ inscricao : manifesta intenção
 encontro ||--o{ inscricao : recebe
+
+note right of participacao
+  Participação é adesão do usuário ao ciclo de leitura.
+  Cada par usuário / ciclo possui uma única participação.
+  A página atual é inteira e não negativa; a conclusão
+  é um instante opcional, sem percentual ou contador derivado.
+  FKs para usuário e ciclo usam exclusão RESTRICT.
+end note
+
+note right of inscricao
+  Inscrição é intenção de comparecer, não presença.
+  Cada par usuário / encontro possui uma única inscrição.
+  Usuário referenciado não pode ser excluído (RESTRICT).
+  Excluir encontro remove somente suas inscrições (CASCADE),
+  sem apagar participações, usuários ou ciclos.
+end note
 
 note right of encontro
   Cada encontro pertence a exatamente um ciclo.
@@ -99,8 +117,10 @@ note as normalizacao
   superior pelo ano corrente pertence ao serviço futuro.
   Relações muitos para muitos usuário/ciclo e usuário/encontro
   resolvidas, respectivamente, por participações e inscrições.
-  Sem percentual de leitura ou contador redundante.
-  A inscrição em encontro independe da participação no ciclo.
+  Sem percentual de leitura, contador redundante ou presença.
+  Usuário ativo, limite superior da página pelo total do livro
+  e inscrição no mesmo ciclo serão validados nos serviços;
+  não são restrições entre tabelas impostas pelo schema.
   Datas de ciclo obrigatórias, com fim maior ou igual ao início.
   Datas civis não são instantes UTC e não mudam de dia por fuso.
   O início do encontro é um instante absoluto; a apresentação

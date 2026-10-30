@@ -3,8 +3,8 @@
 // Livro é a obra cadastrada; ciclos_leitura registra cada uso dessa obra no clube.
 // O banco valida ano positivo; o limite superior pelo ano corrente será do serviço.
 // M:N resolvidas por participacoes_leitura e inscricoes_encontro; pares únicos.
-// Inscrição em encontro independe da participação no ciclo. Um único clube escolar.
-// Nenhum percentual ou contador redundante: agregações são calculadas quando necessárias.
+// Participação é adesão ao ciclo; inscrição é intenção de comparecer, não presença.
+// Um único clube escolar. Nenhum percentual, contador redundante ou presença é armazenado.
 // JavaScript usa camelCase; colunas e tabelas PostgreSQL usam snake_case.
 // As migrations são a autoridade do schema. Atualizar estes modelos junto delas.
 
@@ -130,13 +130,27 @@ Table encontros {
 Table participacoes_leitura {
   id integer [pk, increment, not null]
   usuario_id integer [not null]
-  ciclo_leitura_id integer [not null]
+  ciclo_id integer [not null]
+  pagina_atual integer [not null, default: 0]
+  concluida_em timestamptz
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
 
-  indexes {
-    (usuario_id, ciclo_leitura_id) [unique, name: 'participacoes_leitura_usuario_ciclo_unico']
+  checks {
+    `pagina_atual >= 0` [name: 'participacoes_leitura_pagina_nao_negativa']
   }
+
+  indexes {
+    (usuario_id, ciclo_id) [unique, name: 'participacoes_leitura_usuario_ciclo_unico']
+  }
+
+  Note: '''
+    Adesão do usuário ao ciclo; um único registro por par usuário/ciclo.
+    O limite superior da página, conforme o total do livro, e a condição de
+    usuário ativo serão validados nos serviços. Não há CHECK entre tabelas.
+    Excluir usuário ou ciclo referenciado é bloqueado por RESTRICT,
+    preservando o histórico sem cascata de exclusão.
+  '''
 }
 
 Table inscricoes_encontro {
@@ -149,17 +163,25 @@ Table inscricoes_encontro {
   indexes {
     (usuario_id, encontro_id) [unique, name: 'inscricoes_encontro_usuario_encontro_unico']
   }
+
+  Note: '''
+    Intenção de comparecer ao encontro, não registro de presença.
+    Usuário ativo e inscrição no mesmo ciclo serão verificados pelos serviços.
+    A FK de usuário usa RESTRICT. A FK de encontro usa ON DELETE CASCADE:
+    excluir encontro remove apenas as inscrições que o referenciam.
+  '''
 }
 
 // FKs obrigatórias: dependentes participam totalmente, principais admitem 0..N dependentes.
-// RESTRICT preserva referências e histórico; atualizações de chave propagam por CASCADE.
+// RESTRICT preserva histórico ao excluir usuários/ciclos. A única cascata de exclusão
+// é encontros -> inscricoes_encontro; atualizações das chaves propagam por CASCADE.
 Ref: livros.genero_id > generos.id [delete: restrict, update: cascade]
 Ref: ciclos_leitura.livro_id > livros.id [delete: restrict, update: cascade]
 Ref: encontros.ciclo_id > ciclos_leitura.id [delete: restrict, update: cascade]
 Ref: participacoes_leitura.usuario_id > usuarios.id [delete: restrict, update: cascade]
-Ref: participacoes_leitura.ciclo_leitura_id > ciclos_leitura.id [delete: restrict, update: cascade]
+Ref: participacoes_leitura.ciclo_id > ciclos_leitura.id [delete: restrict, update: cascade]
 Ref: inscricoes_encontro.usuario_id > usuarios.id [delete: restrict, update: cascade]
-Ref: inscricoes_encontro.encontro_id > encontros.id [delete: restrict, update: cascade]
+Ref: inscricoes_encontro.encontro_id > encontros.id [delete: cascade, update: cascade]
 
 // Infraestrutura: sequelize-cli cria esta tabela; ela não é criada pela migration do domínio.
 // A coluna name é o contrato técnico do CLI, mantida sem tradução.

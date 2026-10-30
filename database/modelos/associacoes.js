@@ -8,6 +8,8 @@ function definirAssociacoes(modelos) {
   const generoId = () => ({ name: 'generoId', field: 'genero_id', allowNull: false });
   const livroId = () => ({ name: 'livroId', field: 'livro_id', allowNull: false });
   const cicloId = () => ({ name: 'cicloId', field: 'ciclo_id', allowNull: false });
+  const usuarioId = () => ({ name: 'usuarioId', field: 'usuario_id', allowNull: false });
+  const encontroId = () => ({ name: 'encontroId', field: 'encontro_id', allowNull: false });
 
   Genero.hasMany(Livro, { as: 'livros', foreignKey: generoId(), ...integridade });
   Livro.belongsTo(Genero, { as: 'genero', foreignKey: generoId(), ...integridade });
@@ -17,31 +19,35 @@ function definirAssociacoes(modelos) {
   CicloLeitura.hasMany(Encontro, { as: 'encontros', foreignKey: cicloId(), ...integridade });
   Encontro.belongsTo(CicloLeitura, { as: 'ciclo', foreignKey: cicloId(), ...integridade });
 
-  Usuario.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: 'usuarioId', ...integridade });
-  ParticipacaoLeitura.belongsTo(Usuario, { as: 'usuario', foreignKey: 'usuarioId', ...integridade });
-  CicloLeitura.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: 'cicloLeituraId', ...integridade });
-  ParticipacaoLeitura.belongsTo(CicloLeitura, { as: 'cicloLeitura', foreignKey: 'cicloLeituraId', ...integridade });
+  Usuario.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: usuarioId(), ...integridade });
+  ParticipacaoLeitura.belongsTo(Usuario, { as: 'usuario', foreignKey: usuarioId(), ...integridade });
+  CicloLeitura.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: cicloId(), ...integridade });
+  ParticipacaoLeitura.belongsTo(CicloLeitura, { as: 'ciclo', foreignKey: cicloId(), ...integridade });
+  // As FKs e os índices pertencem aos modelos de junção/migrations. O Sequelize
+  // não deve substituir ações distintas por CASCADE nem gerar outra unicidade.
   Usuario.belongsToMany(CicloLeitura, {
     as: 'ciclosLeitura', through: { model: ParticipacaoLeitura, unique: false },
-    foreignKey: 'usuarioId', otherKey: 'cicloLeituraId', ...integridade,
+    foreignKey: usuarioId(), otherKey: cicloId(), constraints: false,
   });
   CicloLeitura.belongsToMany(Usuario, {
     as: 'usuariosParticipantes', through: { model: ParticipacaoLeitura, unique: false },
-    foreignKey: 'cicloLeituraId', otherKey: 'usuarioId', ...integridade,
+    foreignKey: cicloId(), otherKey: usuarioId(), constraints: false,
   });
 
-  // A inscrição em encontro independe da participação no ciclo nesta modelagem.
-  Usuario.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: 'usuarioId', ...integridade });
-  InscricaoEncontro.belongsTo(Usuario, { as: 'usuario', foreignKey: 'usuarioId', ...integridade });
-  Encontro.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: 'encontroId', ...integridade });
-  InscricaoEncontro.belongsTo(Encontro, { as: 'encontro', foreignKey: 'encontroId', ...integridade });
+  // A inscrição é intenção de comparecer. A validação de adesão ao mesmo ciclo
+  // pertence ao serviço; no schema apenas excluir o encontro elimina inscrições.
+  Usuario.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: usuarioId(), ...integridade });
+  InscricaoEncontro.belongsTo(Usuario, { as: 'usuario', foreignKey: usuarioId(), ...integridade });
+  const exclusaoEncontro = { onDelete: 'CASCADE', onUpdate: 'CASCADE' };
+  Encontro.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: encontroId(), ...exclusaoEncontro });
+  InscricaoEncontro.belongsTo(Encontro, { as: 'encontro', foreignKey: encontroId(), ...exclusaoEncontro });
   Usuario.belongsToMany(Encontro, {
     as: 'encontrosInscritos', through: { model: InscricaoEncontro, unique: false },
-    foreignKey: 'usuarioId', otherKey: 'encontroId', ...integridade,
+    foreignKey: usuarioId(), otherKey: encontroId(), constraints: false,
   });
   Encontro.belongsToMany(Usuario, {
     as: 'usuariosInscritos', through: { model: InscricaoEncontro, unique: false },
-    foreignKey: 'encontroId', otherKey: 'usuarioId', ...integridade,
+    foreignKey: encontroId(), otherKey: usuarioId(), constraints: false,
   });
 }
 

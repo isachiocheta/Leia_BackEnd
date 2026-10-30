@@ -231,7 +231,7 @@ describe('Usuários e sessões no PostgreSQL de teste', { timeout: 20_000 }, () 
       const genero = await Genero.create({ nome: 'Gênero de integração' }, opcoes);
       const livro = await Livro.create({ titulo: 'Livro', autor: 'Autor', generoId: genero.id, totalPaginas: 100 }, opcoes);
       const ciclo = await CicloLeitura.create({ nome: 'Ciclo de participação', livroId: livro.id, dataInicio: '2026-10-01', dataFim: '2026-10-31' }, opcoes);
-      const participacao = await ParticipacaoLeitura.create({ usuarioId: usuario.id, cicloLeituraId: ciclo.id }, opcoes);
+      const participacao = await ParticipacaoLeitura.create({ usuarioId: usuario.id, cicloId: ciclo.id }, opcoes);
       const resultado = await ParticipacaoLeitura.findByPk(participacao.id, { include: ['usuario'], transaction });
 
       assert.equal(resultado.usuario.id, usuario.id);

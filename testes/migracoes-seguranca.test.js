@@ -10,6 +10,8 @@ const migracoes = [
   ['livros', require('../database/migracoes/20261030021000-completar-livros')],
   ['ciclos de leitura', require('../database/migracoes/20261030030000-completar-ciclos-leitura')],
   ['encontros', require('../database/migracoes/20261030040000-completar-encontros')],
+  ['participações de leitura', require('../database/migracoes/20261030050000-completar-participacoes-leitura')],
+  ['inscrições em encontros', require('../database/migracoes/20261030051000-ajustar-inscricoes-encontro')],
 ];
 
 const ambienteSeguro = {
