@@ -2,6 +2,9 @@
 
 const { DataTypes } = require('sequelize');
 const { definirUsuario } = require('./usuario');
+const { definirGenero } = require('./genero');
+const { definirLivro } = require('./livro');
+const { definirAssociacoes } = require('./associacoes');
 
 // A estrutura física é definida pelas migrations. Estes modelos apenas a descrevem.
 // Um autor informado e um gênero por livro; associações M:N usam tabelas próprias.
@@ -29,17 +32,8 @@ function definirModelos(sequelize) {
 
   const Usuario = definirUsuario(sequelize);
 
-  const Genero = sequelize.define('Genero', {
-    id: identificador(),
-    nome: { type: DataTypes.STRING(80), allowNull: false, unique: 'generos_nome_unico' },
-  }, opcoes('generos'));
-
-  const Livro = sequelize.define('Livro', {
-    id: identificador(),
-    titulo: { type: DataTypes.STRING(200), allowNull: false },
-    autorInformado: { type: DataTypes.STRING(200), allowNull: false, field: 'autor_informado' },
-    generoId: chaveEstrangeira('genero_id'),
-  }, opcoes('livros'));
+  const Genero = definirGenero(sequelize);
+  const Livro = definirLivro(sequelize);
 
   const CicloLeitura = sequelize.define('CicloLeitura', {
     id: identificador(),
@@ -74,43 +68,9 @@ function definirModelos(sequelize) {
     indexes: [{ unique: true, name: 'inscricoes_encontro_usuario_encontro_unico', fields: ['usuario_id', 'encontro_id'] }],
   });
 
-  const integridade = { onDelete: 'RESTRICT', onUpdate: 'CASCADE' };
-
-  Genero.hasMany(Livro, { as: 'livros', foreignKey: 'generoId', ...integridade });
-  Livro.belongsTo(Genero, { as: 'genero', foreignKey: 'generoId', ...integridade });
-  Livro.hasMany(CicloLeitura, { as: 'ciclosLeitura', foreignKey: 'livroId', ...integridade });
-  CicloLeitura.belongsTo(Livro, { as: 'livro', foreignKey: 'livroId', ...integridade });
-  CicloLeitura.hasMany(Encontro, { as: 'encontros', foreignKey: 'cicloLeituraId', ...integridade });
-  Encontro.belongsTo(CicloLeitura, { as: 'cicloLeitura', foreignKey: 'cicloLeituraId', ...integridade });
-
-  Usuario.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: 'usuarioId', ...integridade });
-  ParticipacaoLeitura.belongsTo(Usuario, { as: 'usuario', foreignKey: 'usuarioId', ...integridade });
-  CicloLeitura.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: 'cicloLeituraId', ...integridade });
-  ParticipacaoLeitura.belongsTo(CicloLeitura, { as: 'cicloLeitura', foreignKey: 'cicloLeituraId', ...integridade });
-  Usuario.belongsToMany(CicloLeitura, {
-    as: 'ciclosLeitura', through: { model: ParticipacaoLeitura, unique: false },
-    foreignKey: 'usuarioId', otherKey: 'cicloLeituraId', ...integridade,
-  });
-  CicloLeitura.belongsToMany(Usuario, {
-    as: 'usuariosParticipantes', through: { model: ParticipacaoLeitura, unique: false },
-    foreignKey: 'cicloLeituraId', otherKey: 'usuarioId', ...integridade,
-  });
-
-  // A inscrição em encontro independe da participação no ciclo nesta modelagem.
-  Usuario.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: 'usuarioId', ...integridade });
-  InscricaoEncontro.belongsTo(Usuario, { as: 'usuario', foreignKey: 'usuarioId', ...integridade });
-  Encontro.hasMany(InscricaoEncontro, { as: 'inscricoesEncontro', foreignKey: 'encontroId', ...integridade });
-  InscricaoEncontro.belongsTo(Encontro, { as: 'encontro', foreignKey: 'encontroId', ...integridade });
-  Usuario.belongsToMany(Encontro, {
-    as: 'encontrosInscritos', through: { model: InscricaoEncontro, unique: false },
-    foreignKey: 'usuarioId', otherKey: 'encontroId', ...integridade,
-  });
-  Encontro.belongsToMany(Usuario, {
-    as: 'usuariosInscritos', through: { model: InscricaoEncontro, unique: false },
-    foreignKey: 'encontroId', otherKey: 'usuarioId', ...integridade,
-  });
-
-  return { Usuario, Genero, Livro, CicloLeitura, Encontro, ParticipacaoLeitura, InscricaoEncontro };
+  const modelos = { Usuario, Genero, Livro, CicloLeitura, Encontro, ParticipacaoLeitura, InscricaoEncontro };
+  definirAssociacoes(modelos);
+  return modelos;
 }
 
 module.exports = { definirModelos };

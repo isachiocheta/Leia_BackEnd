@@ -15,14 +15,18 @@ entity "Usuário" as usuario {
 entity "Gênero" as genero {
   * identificador
   --
-  * nome {único}
+  * nome {único, até 60 caracteres, não vazio}
 }
 
 entity "Livro" as livro {
   * identificador
   --
-  * título
-  * autor informado
+  * título {até 160 caracteres, não vazio}
+  * autor {até 120 caracteres, não vazio}
+  * total de páginas {inteiro maior que zero}
+  ano de publicação {inteiro positivo, opcional}
+  descrição {até 2000 caracteres, opcional}
+  URL da capa {opcional}
 }
 
 entity "Ciclo de leitura" as ciclo {
@@ -76,6 +80,10 @@ note as normalizacao
   Normalização: atributos atômicos e dependências da chave;
   ausência de atributos derivados e dependências transitivas (3FN).
   Um autor informado em texto e um gênero por livro.
+  Livro representa a obra cadastrada; cada uso em leitura
+  é um ciclo distinto, sem duplicar a obra ou seus atributos.
+  Ano de publicação é positivo quando informado; o limite
+  superior pelo ano corrente pertence ao serviço futuro.
   Relações muitos para muitos usuário/ciclo e usuário/encontro
   resolvidas, respectivamente, por participações e inscrições.
   Sem percentual de leitura ou contador redundante.

@@ -1,5 +1,7 @@
 // Modelo em 3FN: atributos atômicos e dependentes da chave, sem dependências transitivas.
 // Simplificações: um autor informado em texto e um gênero obrigatório por livro.
+// Livro é a obra cadastrada; ciclos_leitura registra cada uso dessa obra no clube.
+// O banco valida ano positivo; o limite superior pelo ano corrente será do serviço.
 // M:N resolvidas por participacoes_leitura e inscricoes_encontro; pares únicos.
 // Inscrição em encontro independe da participação no ciclo. Um único clube escolar.
 // Nenhum percentual ou contador redundante: agregações são calculadas quando necessárias.
@@ -34,18 +36,33 @@ Table usuarios {
 
 Table generos {
   id integer [pk, increment, not null]
-  nome varchar(80) [not null, unique]
+  nome varchar(60) [not null, unique]
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
+
+  checks {
+    `nome ~ '[^[:space:]]'` [name: 'generos_nome_nao_vazio']
+  }
 }
 
 Table livros {
   id integer [pk, increment, not null]
-  titulo varchar(200) [not null]
-  autor_informado varchar(200) [not null]
+  titulo varchar(160) [not null]
+  autor varchar(120) [not null]
   genero_id integer [not null]
+  total_paginas integer [not null]
+  ano_publicacao integer
+  descricao varchar(2000)
+  capa_url text
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
+
+  checks {
+    `titulo ~ '[^[:space:]]'` [name: 'livros_titulo_nao_vazio']
+    `autor ~ '[^[:space:]]'` [name: 'livros_autor_nao_vazio']
+    `total_paginas > 0` [name: 'livros_total_paginas_positivo']
+    `ano_publicacao IS NULL OR ano_publicacao > 0` [name: 'livros_ano_publicacao_positivo']
+  }
 }
 
 Table ciclos_leitura {

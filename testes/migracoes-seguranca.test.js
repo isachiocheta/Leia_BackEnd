@@ -6,6 +6,8 @@ const Sequelize = require('sequelize');
 const migracoes = [
   ['usuários', require('../database/migracoes/20261030010000-completar-usuarios')],
   ['sessões', require('../database/migracoes/20261030011000-criar-sessoes')],
+  ['gêneros', require('../database/migracoes/20261030020000-ajustar-generos')],
+  ['livros', require('../database/migracoes/20261030021000-completar-livros')],
 ];
 
 const ambienteSeguro = {

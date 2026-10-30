@@ -13,7 +13,9 @@ const diretorioBackend = caminho.resolve(__dirname, '../..');
 const migracaoAnterior = '20261030000000-criar-dominio.js';
 const migracaoUsuarios = '20261030010000-completar-usuarios.js';
 const migracaoSessoes = '20261030011000-criar-sessoes.js';
-const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes];
+const migracaoGeneros = '20261030020000-ajustar-generos.js';
+const migracaoLivros = '20261030021000-completar-livros.js';
+const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros];
 let conexao;
 
 function executarCli(comando, argumentos = [], codigo = 0) {
@@ -38,7 +40,7 @@ async function migracoesAplicadas() {
   return linhas.map((linha) => linha.name);
 }
 
-async function conferirEtapa03() {
+async function conferirSchemaAtual() {
   const usuarios = await conexao.getQueryInterface().describeTable('usuarios');
   assert.equal(usuarios.nome.type, 'CHARACTER VARYING(100)');
   for (const coluna of ['senha_hash', 'situacao', 'session_version']) {
@@ -46,6 +48,17 @@ async function conferirEtapa03() {
   }
   const sessoes = await conexao.getQueryInterface().describeTable('sessoes');
   assert.deepEqual(Object.keys(sessoes).sort(), ['expire', 'sess', 'sid']);
+  const generos = await conexao.getQueryInterface().describeTable('generos');
+  assert.equal(generos.nome.type, 'CHARACTER VARYING(60)');
+  const livros = await conexao.getQueryInterface().describeTable('livros');
+  assert.equal(livros.titulo.type, 'CHARACTER VARYING(160)');
+  assert.equal(livros.autor.type, 'CHARACTER VARYING(120)');
+  assert.equal(livros.total_paginas.allowNull, false);
+  assert.equal(livros.total_paginas.defaultValue, null);
+  assert.equal(livros.autor_informado, undefined);
+  for (const campo of ['ano_publicacao', 'descricao', 'capa_url']) {
+    assert.equal(livros[campo].allowNull, true);
+  }
   assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas);
 }
 
@@ -77,7 +90,7 @@ after(async () => {
   if (conexao) await conexao.close();
 });
 
-test('migrations de usuários e sessões executam up, down e up sem editar a etapa anterior', { timeout: 45_000 }, async () => {
+test('migrations executam up, down em ordem inversa e up sem editar as anteriores', { timeout: 60_000 }, async () => {
   executarCli('db:migrate', ['--to', migracaoAnterior]);
   let aplicadas = await migracoesAplicadas();
 
@@ -88,6 +101,8 @@ test('migrations de usuários e sessões executam up, down e up sem editar a eta
   }
   assert.deepEqual(aplicadas, [migracaoAnterior]);
   const estruturaAnterior = await conexao.getQueryInterface().describeTable('usuarios');
+  const generosAnteriores = await conexao.getQueryInterface().describeTable('generos');
+  const livrosAnteriores = await conexao.getQueryInterface().describeTable('livros');
 
   // Sem hashes legados, a evolução deve falhar atomicamente, sem inventar senha.
   validarDestinoTeste(conexao);
@@ -108,9 +123,42 @@ test('migrations de usuários e sessões executam up, down e up sem editar a eta
     await conexao.query('DELETE FROM usuarios WHERE id = $1', { bind: [legados[0].id] });
   }
 
-  executarCli('db:migrate');
-  await conferirEtapa03();
+  executarCli('db:migrate', ['--to', migracaoSessoes]);
+  validarDestinoTeste(conexao);
+  const [generos] = await conexao.query(`
+    INSERT INTO generos (nome, criado_em, atualizado_em)
+    VALUES ('Gênero legado', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `);
+  const [livrosLegados] = await conexao.query(`
+    INSERT INTO livros (titulo, autor_informado, genero_id, criado_em, atualizado_em)
+    VALUES ('Obra legada', 'Autor preservado', $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [generos[0].id] });
 
+  try {
+    executarCli('db:migrate', [], 1);
+    assert.deepEqual(await conexao.getQueryInterface().describeTable('livros'), livrosAnteriores);
+    assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 4));
+    const [mantidos] = await conexao.query('SELECT autor_informado FROM livros WHERE id = $1', {
+      bind: [livrosLegados[0].id],
+    });
+    assert.equal(mantidos[0].autor_informado, 'Autor preservado');
+  } finally {
+    validarDestinoTeste(conexao);
+    await conexao.query('DELETE FROM livros WHERE id = $1', { bind: [livrosLegados[0].id] });
+    await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generos[0].id] });
+  }
+
+  executarCli('db:migrate');
+  await conferirSchemaAtual();
+
+  // O catálogo é revertido antes de usuários/sessões; nenhum ciclo perde sua FK.
+  executarCli('db:migrate:undo');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('livros'), livrosAnteriores);
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 4));
+  assert.equal((await conexao.getQueryInterface().describeTable('generos')).nome.type, 'CHARACTER VARYING(60)');
+  executarCli('db:migrate:undo');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('generos'), generosAnteriores);
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 3));
   executarCli('db:migrate:undo');
   assert.ok(!(await conexao.getQueryInterface().showAllTables()).includes('sessoes'));
   executarCli('db:migrate:undo');
@@ -118,5 +166,5 @@ test('migrations de usuários e sessões executam up, down e up sem editar a eta
   assert.deepEqual(await migracoesAplicadas(), [migracaoAnterior]);
 
   executarCli('db:migrate');
-  await conferirEtapa03();
+  await conferirSchemaAtual();
 });
