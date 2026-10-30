@@ -9,6 +9,7 @@ delete process.env.PORT;
 delete process.env.ALLOWED_ORIGIN;
 
 const aplicacao = require('../app');
+const banco = require('../database/conexao');
 
 describe('Aplicação HTTP', () => {
   let servidor;
@@ -38,6 +39,37 @@ describe('Aplicação HTTP', () => {
       aplicacao: 'Leia+',
       status: 'ok',
     });
+  });
+
+  it('mantém o health independente do banco indisponível', async (t) => {
+    const verificar = t.mock.method(banco, 'verificarConexao', async () => {
+      throw new Error('Banco indisponível.');
+    });
+    const resposta = await fetch(`${endereco}/api/health`);
+
+    assert.equal(resposta.status, 200);
+    assert.equal(verificar.mock.callCount(), 0);
+    await resposta.json();
+  });
+
+  it('retorna prontidão 200 quando a conexão está disponível', async (t) => {
+    t.mock.method(banco, 'verificarConexao', async () => {});
+    const resposta = await fetch(`${endereco}/api/ready`);
+
+    assert.equal(resposta.status, 200);
+    assert.equal(resposta.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await resposta.json(), { aplicacao: 'Leia+', status: 'pronto' });
+  });
+
+  it('retorna prontidão 503 sem expor falhas ou credenciais', async (t) => {
+    t.mock.method(banco, 'verificarConexao', async () => {
+      throw new Error('postgresql://usuario:segredo@host/banco SELECT detalhe');
+    });
+    const resposta = await fetch(`${endereco}/api/ready`);
+
+    assert.equal(resposta.status, 503);
+    assert.match(resposta.headers.get('content-type'), /application\/json/);
+    assert.deepEqual(await resposta.json(), { aplicacao: 'Leia+', status: 'indisponivel' });
   });
 
   it('retorna 404 em JSON para uma rota inexistente', async () => {

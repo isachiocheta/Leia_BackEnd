@@ -1,6 +1,7 @@
 'use strict';
 
 const { carregarAmbiente } = require('./configuracao/ambiente');
+const banco = require('./database/conexao');
 
 function iniciarServidor() {
   const { porta } = carregarAmbiente();
@@ -25,17 +26,18 @@ function iniciarServidor() {
     }, 10_000);
     prazo.unref();
 
-    servidor.close((erro) => {
-      clearTimeout(prazo);
-      removerSinais();
-
-      if (erro) {
-        console.error('Não foi possível encerrar o servidor:', erro.message);
+    servidor.close(async (erro) => {
+      try {
+        await banco.encerrarConexao();
+        if (erro) throw erro;
+        console.info('Leia+ encerrado.');
+      } catch {
+        console.error('Não foi possível encerrar o servidor e suas conexões.');
         process.exitCode = 1;
-        return;
+      } finally {
+        clearTimeout(prazo);
+        removerSinais();
       }
-
-      console.info('Leia+ encerrado.');
     });
   }
 
@@ -44,12 +46,18 @@ function iniciarServidor() {
 
   servidor.once('listening', () => {
     console.info(`Leia+ disponível em http://localhost:${porta}.`);
+    banco.verificarConexao()
+      .then(() => console.info('Conexão PostgreSQL disponível.'))
+      .catch(() => console.warn('PostgreSQL indisponível; consulte /api/ready.'));
   });
 
   servidor.once('error', (erro) => {
     removerSinais();
     console.error('Não foi possível iniciar o servidor:', erro.message);
     process.exitCode = 1;
+    banco.encerrarConexao().catch(() => {
+      console.error('Não foi possível encerrar as conexões PostgreSQL.');
+    });
   });
 
   return servidor;

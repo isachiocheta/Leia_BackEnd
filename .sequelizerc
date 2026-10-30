@@ -1,0 +1,18 @@
+'use strict';
+
+const caminho = require('node:path');
+const { existsSync } = require('node:fs');
+const { validarOperacaoCli } = require('./configuracao/operacoes-banco');
+
+const arquivoAmbiente = caminho.join(__dirname, '.env');
+if (existsSync(arquivoAmbiente)) process.loadEnvFile(arquivoAmbiente);
+
+validarOperacaoCli();
+
+module.exports = {
+  env: process.env.NODE_ENV ?? 'development',
+  config: caminho.join(__dirname, 'configuracao/banco-cli.js'),
+  'models-path': caminho.join(__dirname, 'database/modelos'),
+  'migrations-path': caminho.join(__dirname, 'database/migracoes'),
+  'seeders-path': caminho.join(__dirname, 'database/semeadores'),
+};

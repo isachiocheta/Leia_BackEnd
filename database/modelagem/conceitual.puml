@@ -1,0 +1,94 @@
+@startuml LeiaMaisConceitual
+hide methods
+skinparam linetype ortho
+
+entity "Usuário" as usuario {
+  * identificador
+  --
+  * nome
+  * email {único}
+  * perfil {ADMIN_CLUBE, LEITOR}
+}
+
+entity "Gênero" as genero {
+  * identificador
+  --
+  * nome {único}
+}
+
+entity "Livro" as livro {
+  * identificador
+  --
+  * título
+  * autor informado
+}
+
+entity "Ciclo de leitura" as ciclo {
+  * identificador
+  --
+  * data de início
+  * data de fim
+}
+
+entity "Encontro" as encontro {
+  * identificador
+  --
+  * título
+  * data e hora
+  * local
+}
+
+entity "Participação de leitura" as participacao {
+  * identificador
+  --
+  par usuário / ciclo {único}
+}
+
+entity "Inscrição em encontro" as inscricao {
+  * identificador
+  --
+  par usuário / encontro {único}
+}
+
+genero ||--o{ livro : classifica
+livro ||--o{ ciclo : fundamenta
+ciclo ||--o{ encontro : organiza
+usuario ||--o{ participacao : participa
+ciclo ||--o{ participacao : recebe
+usuario ||--o{ inscricao : inscreve-se
+encontro ||--o{ inscricao : recebe
+
+legend bottom
+  |= Notação |= Participação e cardinalidade |
+  | || | exatamente 1: participação total no lado dependente |
+  | o{ | 0..N: participação parcial no lado principal |
+  | * atributo | obrigatório |
+  Cada livro exige um gênero; cada ciclo exige um livro;
+  cada encontro exige um ciclo. Participações e inscrições
+  exigem as duas entidades relacionadas.
+  Usuários, gêneros, livros, ciclos e encontros podem existir
+  sem registros dependentes (participação parcial).
+endlegend
+
+note as normalizacao
+  Normalização: atributos atômicos e dependências da chave;
+  ausência de atributos derivados e dependências transitivas (3FN).
+  Um autor informado em texto e um gênero por livro.
+  Relações muitos para muitos usuário/ciclo e usuário/encontro
+  resolvidas, respectivamente, por participações e inscrições.
+  Sem percentual de leitura ou contador redundante.
+  A inscrição em encontro independe da participação no ciclo.
+  Datas de ciclo obrigatórias, com fim maior ou igual ao início.
+  Um único clube: nenhuma entidade clube ou chave de locatário.
+end note
+
+note as infraestrutura
+  criadoEm e atualizadoEm são atributos técnicos de auditoria.
+  sequelize_meta controla migrations, fora do domínio do clube.
+  Nenhuma tabela de sessões é criada nesta etapa; sessões são
+  infraestrutura e não representam participações ou inscrições.
+  As migrations são a autoridade do schema; manter este diagrama,
+  o modelo lógico e os modelos JavaScript consistentes com elas.
+end note
+
+@enduml

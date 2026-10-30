@@ -1,0 +1,123 @@
+// Modelo em 3FN: atributos atômicos e dependentes da chave, sem dependências transitivas.
+// Simplificações: um autor informado em texto e um gênero obrigatório por livro.
+// M:N resolvidas por participacoes_leitura e inscricoes_encontro; pares únicos.
+// Inscrição em encontro independe da participação no ciclo. Um único clube escolar.
+// Nenhum percentual ou contador redundante: agregações são calculadas quando necessárias.
+// JavaScript usa camelCase; colunas e tabelas PostgreSQL usam snake_case.
+// As migrations são a autoridade do schema. Atualizar estes modelos junto delas.
+
+Project leia_mais {
+  database_type: 'PostgreSQL'
+  Note: 'Domínio de um clube do livro escolar; tabelas técnicas separadas ao final.'
+}
+
+Table usuarios {
+  id integer [pk, increment, not null]
+  nome varchar(120) [not null]
+  email varchar(254) [not null, unique]
+  perfil varchar(20) [not null, default: 'LEITOR', note: 'CHECK: perfil IN (ADMIN_CLUBE, LEITOR)']
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+
+  checks {
+    `perfil IN ('ADMIN_CLUBE', 'LEITOR')` [name: 'usuarios_perfil_valido']
+  }
+}
+
+Table generos {
+  id integer [pk, increment, not null]
+  nome varchar(80) [not null, unique]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+}
+
+Table livros {
+  id integer [pk, increment, not null]
+  titulo varchar(200) [not null]
+  autor_informado varchar(200) [not null]
+  genero_id integer [not null]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+}
+
+Table ciclos_leitura {
+  id integer [pk, increment, not null]
+  livro_id integer [not null]
+  data_inicio date [not null]
+  data_fim date [not null]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+
+  checks {
+    `data_fim >= data_inicio` [name: 'ciclos_leitura_periodo_valido']
+  }
+}
+
+Table encontros {
+  id integer [pk, increment, not null]
+  ciclo_leitura_id integer [not null]
+  titulo varchar(200) [not null]
+  data_hora timestamptz [not null]
+  local varchar(200) [not null]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+}
+
+Table participacoes_leitura {
+  id integer [pk, increment, not null]
+  usuario_id integer [not null]
+  ciclo_leitura_id integer [not null]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+
+  indexes {
+    (usuario_id, ciclo_leitura_id) [unique, name: 'participacoes_leitura_usuario_ciclo_unico']
+  }
+}
+
+Table inscricoes_encontro {
+  id integer [pk, increment, not null]
+  usuario_id integer [not null]
+  encontro_id integer [not null]
+  criado_em timestamptz [not null]
+  atualizado_em timestamptz [not null]
+
+  indexes {
+    (usuario_id, encontro_id) [unique, name: 'inscricoes_encontro_usuario_encontro_unico']
+  }
+}
+
+// FKs obrigatórias: dependentes participam totalmente, principais admitem 0..N dependentes.
+// RESTRICT preserva referências e histórico; atualizações de chave propagam por CASCADE.
+Ref: livros.genero_id > generos.id [delete: restrict, update: cascade]
+Ref: ciclos_leitura.livro_id > livros.id [delete: restrict, update: cascade]
+Ref: encontros.ciclo_leitura_id > ciclos_leitura.id [delete: restrict, update: cascade]
+Ref: participacoes_leitura.usuario_id > usuarios.id [delete: restrict, update: cascade]
+Ref: participacoes_leitura.ciclo_leitura_id > ciclos_leitura.id [delete: restrict, update: cascade]
+Ref: inscricoes_encontro.usuario_id > usuarios.id [delete: restrict, update: cascade]
+Ref: inscricoes_encontro.encontro_id > encontros.id [delete: restrict, update: cascade]
+
+// Infraestrutura: sequelize-cli cria esta tabela; ela não é criada pela migration do domínio.
+// A coluna name é o contrato técnico do CLI, mantida sem tradução.
+Table sequelize_meta {
+  name varchar(255) [pk, not null]
+  Note: 'Tabela técnica: nomes das migrations executadas. Não pertence ao domínio.'
+}
+
+TableGroup dominio {
+  usuarios
+  generos
+  livros
+  ciclos_leitura
+  encontros
+  participacoes_leitura
+  inscricoes_encontro
+}
+
+TableGroup infraestrutura {
+  sequelize_meta
+}
+
+// criado_em/atualizado_em são metadados técnicos de auditoria das entidades.
+// Não há tabela de sessões nesta etapa. Sessões seriam infraestrutura,
+// separadas de participacoes_leitura e inscricoes_encontro, que pertencem ao domínio.
