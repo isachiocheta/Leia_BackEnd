@@ -9,6 +9,7 @@ const migracoes = [
   ['gêneros', require('../database/migracoes/20261030020000-ajustar-generos')],
   ['livros', require('../database/migracoes/20261030021000-completar-livros')],
   ['ciclos de leitura', require('../database/migracoes/20261030030000-completar-ciclos-leitura')],
+  ['encontros', require('../database/migracoes/20261030040000-completar-encontros')],
 ];
 
 const ambienteSeguro = {

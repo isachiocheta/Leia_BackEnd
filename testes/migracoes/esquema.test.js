@@ -16,7 +16,8 @@ const migracaoSessoes = '20261030011000-criar-sessoes.js';
 const migracaoGeneros = '20261030020000-ajustar-generos.js';
 const migracaoLivros = '20261030021000-completar-livros.js';
 const migracaoCiclos = '20261030030000-completar-ciclos-leitura.js';
-const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros, migracaoCiclos];
+const migracaoEncontros = '20261030040000-completar-encontros.js';
+const migracoesConhecidas = [migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros, migracaoLivros, migracaoCiclos, migracaoEncontros];
 let conexao;
 
 function executarCli(comando, argumentos = [], codigo = 0) {
@@ -81,6 +82,20 @@ async function conferirSchemaAtual() {
   assert.equal(indices[0].indisunique, true);
   assert.equal(indices[0].expressao, '1');
   assert.match(indices[0].predicado, /situacao.*EM_ANDAMENTO/);
+  const encontros = await conexao.getQueryInterface().describeTable('encontros');
+  assert.equal(encontros.ciclo_id.allowNull, false);
+  assert.equal(encontros.inicio_em.type, 'TIMESTAMP WITH TIME ZONE');
+  assert.equal(encontros.inicio_em.allowNull, false);
+  assert.equal(encontros.titulo.type, 'CHARACTER VARYING(120)');
+  assert.equal(encontros.local.type, 'CHARACTER VARYING(180)');
+  assert.equal(encontros.descricao.allowNull, true);
+  assert.match(String(encontros.situacao.defaultValue), /AGENDADO/);
+  assert.equal(encontros.ciclo_leitura_id, undefined);
+  assert.equal(encontros.data_hora, undefined);
+  const indicesEncontros = await conexao.getQueryInterface().showIndex('encontros');
+  assert.deepEqual(indicesEncontros.map((indice) => indice.name).sort(), [
+    'encontros_ciclo_inicio_indice', 'encontros_inicio_indice', 'encontros_pkey',
+  ]);
   assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas);
 }
 
@@ -126,6 +141,7 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
   const generosAnteriores = await conexao.getQueryInterface().describeTable('generos');
   const livrosAnteriores = await conexao.getQueryInterface().describeTable('livros');
   const ciclosAnteriores = await conexao.getQueryInterface().describeTable('ciclos_leitura');
+  const encontrosAnteriores = await conexao.getQueryInterface().describeTable('encontros');
 
   // Sem hashes legados, a evolução deve falhar atomicamente, sem inventar senha.
   validarDestinoTeste(conexao);
@@ -201,10 +217,70 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generosCiclo[0].id] });
   }
 
-  executarCli('db:migrate');
-  await conferirSchemaAtual();
+  executarCli('db:migrate', ['--to', migracaoCiclos]);
+  validarDestinoTeste(conexao);
+  const [generosEncontro] = await conexao.query(`
+    INSERT INTO generos (nome, criado_em, atualizado_em)
+    VALUES ('Gênero do encontro legado', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `);
+  const [livrosEncontro] = await conexao.query(`
+    INSERT INTO livros (titulo, autor, genero_id, total_paginas, criado_em, atualizado_em)
+    VALUES ('Obra do encontro', 'Autor', $1, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [generosEncontro[0].id] });
+  const [ciclosEncontro] = await conexao.query(`
+    INSERT INTO ciclos_leitura (nome, livro_id, data_inicio, data_fim, criado_em, atualizado_em)
+    VALUES ('Ciclo do encontro', $1, '2026-11-01', '2026-11-30', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id
+  `, { bind: [livrosEncontro[0].id] });
+  const [encontrosLegados] = await conexao.query(`
+    INSERT INTO encontros (ciclo_leitura_id, titulo, data_hora, local, criado_em, atualizado_em)
+    VALUES ($1, 'Encontro preservado', '2026-11-10T10:30:00.123456-03:00', 'Biblioteca', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    RETURNING id, EXTRACT(EPOCH FROM data_hora)::text AS instante
+  `, { bind: [ciclosEncontro[0].id] });
 
-  // Ciclos são revertidos antes do catálogo, preservando as FKs e datas originais.
+  try {
+    executarCli('db:migrate');
+    await conferirSchemaAtual();
+    const [preservados] = await conexao.query(`
+      SELECT id, ciclo_id, titulo, local, descricao, situacao,
+             EXTRACT(EPOCH FROM inicio_em)::text AS instante
+        FROM encontros WHERE id = $1
+    `, { bind: [encontrosLegados[0].id] });
+    assert.deepEqual(preservados[0], {
+      id: encontrosLegados[0].id, ciclo_id: ciclosEncontro[0].id,
+      titulo: 'Encontro preservado', local: 'Biblioteca', descricao: null,
+      situacao: 'AGENDADO', instante: encontrosLegados[0].instante,
+    });
+
+    executarCli('db:migrate:undo');
+    assert.deepEqual(await conexao.getQueryInterface().describeTable('encontros'), encontrosAnteriores);
+    const [restaurados] = await conexao.query(`
+      SELECT ciclo_leitura_id, titulo, local, EXTRACT(EPOCH FROM data_hora)::text AS instante
+        FROM encontros WHERE id = $1
+    `, { bind: [encontrosLegados[0].id] });
+    assert.deepEqual(restaurados[0], {
+      ciclo_leitura_id: ciclosEncontro[0].id, titulo: 'Encontro preservado',
+      local: 'Biblioteca', instante: encontrosLegados[0].instante,
+    });
+    assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 6));
+
+    executarCli('db:migrate');
+    const [reaplicados] = await conexao.query('SELECT EXTRACT(EPOCH FROM inicio_em)::text AS instante FROM encontros WHERE id = $1', {
+      bind: [encontrosLegados[0].id],
+    });
+    assert.equal(reaplicados[0].instante, encontrosLegados[0].instante);
+  } finally {
+    validarDestinoTeste(conexao);
+    await conexao.query('DELETE FROM encontros WHERE id = $1', { bind: [encontrosLegados[0].id] });
+    await conexao.query('DELETE FROM ciclos_leitura WHERE id = $1', { bind: [ciclosEncontro[0].id] });
+    await conexao.query('DELETE FROM livros WHERE id = $1', { bind: [livrosEncontro[0].id] });
+    await conexao.query('DELETE FROM generos WHERE id = $1', { bind: [generosEncontro[0].id] });
+  }
+
+  // A ordem inversa começa por encontros, conservando os schemas anteriores.
+  executarCli('db:migrate:undo');
+  assert.deepEqual(await conexao.getQueryInterface().describeTable('encontros'), encontrosAnteriores);
+  assert.deepEqual((await conexao.getQueryInterface().showIndex('encontros')).map((indice) => indice.name), ['encontros_pkey']);
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 6));
   executarCli('db:migrate:undo');
   assert.deepEqual(await conexao.getQueryInterface().describeTable('ciclos_leitura'), ciclosAnteriores);
   const [indicesAposRollback] = await conexao.query("SELECT to_regclass('ciclos_leitura_unico_em_andamento') AS indice");

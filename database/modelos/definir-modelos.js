@@ -5,6 +5,7 @@ const { definirUsuario } = require('./usuario');
 const { definirGenero } = require('./genero');
 const { definirLivro } = require('./livro');
 const { definirCicloLeitura } = require('./ciclo-leitura');
+const { definirEncontro } = require('./encontro');
 const { definirAssociacoes } = require('./associacoes');
 
 // A estrutura física é definida pelas migrations. Estes modelos apenas a descrevem.
@@ -38,13 +39,7 @@ function definirModelos(sequelize) {
 
   const CicloLeitura = definirCicloLeitura(sequelize);
 
-  const Encontro = sequelize.define('Encontro', {
-    id: identificador(),
-    cicloLeituraId: chaveEstrangeira('ciclo_leitura_id'),
-    titulo: { type: DataTypes.STRING(200), allowNull: false },
-    dataHora: { type: DataTypes.DATE, allowNull: false, field: 'data_hora' },
-    local: { type: DataTypes.STRING(200), allowNull: false },
-  }, opcoes('encontros'));
+  const Encontro = definirEncontro(sequelize);
 
   const ParticipacaoLeitura = sequelize.define('ParticipacaoLeitura', {
     id: identificador(),

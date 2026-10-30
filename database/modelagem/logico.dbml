@@ -96,12 +96,35 @@ Table ciclos_leitura {
 
 Table encontros {
   id integer [pk, increment, not null]
-  ciclo_leitura_id integer [not null]
-  titulo varchar(200) [not null]
-  data_hora timestamptz [not null]
-  local varchar(200) [not null]
+  ciclo_id integer [not null]
+  titulo varchar(120) [not null]
+  inicio_em timestamptz [not null, note: 'Instante absoluto, armazenado com fuso; a apresentação pode variar por fuso.']
+  local varchar(180) [not null]
+  descricao varchar(2000)
+  situacao varchar(20) [not null, default: 'AGENDADO']
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
+
+  checks {
+    `titulo ~ '[^[:space:]]'` [name: 'encontros_titulo_nao_vazio']
+    `local ~ '[^[:space:]]'` [name: 'encontros_local_nao_vazio']
+    `situacao IN ('AGENDADO', 'REALIZADO', 'CANCELADO')` [name: 'encontros_situacao_valida']
+  }
+
+  indexes {
+    (ciclo_id, inicio_em) [name: 'encontros_ciclo_inicio_indice']
+    inicio_em [name: 'encontros_inicio_indice']
+  }
+
+  // O índice composto atende consultas por ciclo e ordenação por início;
+  // seu prefixo já atende ciclo_id, portanto não há índice isolado redundante.
+  // O índice por inicio_em atende a ordem cronológica entre todos os ciclos.
+  Note: '''
+    A regra de encontro dentro do período de ciclos_leitura depende de outra
+    tabela e de uma convenção de fuso; será validada no serviço.
+    Não há CHECK nem trigger entre tabelas para essa regra.
+    Associações no model: CicloLeitura.encontros e Encontro.ciclo, com cicloId.
+  '''
 }
 
 Table participacoes_leitura {
@@ -132,7 +155,7 @@ Table inscricoes_encontro {
 // RESTRICT preserva referências e histórico; atualizações de chave propagam por CASCADE.
 Ref: livros.genero_id > generos.id [delete: restrict, update: cascade]
 Ref: ciclos_leitura.livro_id > livros.id [delete: restrict, update: cascade]
-Ref: encontros.ciclo_leitura_id > ciclos_leitura.id [delete: restrict, update: cascade]
+Ref: encontros.ciclo_id > ciclos_leitura.id [delete: restrict, update: cascade]
 Ref: participacoes_leitura.usuario_id > usuarios.id [delete: restrict, update: cascade]
 Ref: participacoes_leitura.ciclo_leitura_id > ciclos_leitura.id [delete: restrict, update: cascade]
 Ref: inscricoes_encontro.usuario_id > usuarios.id [delete: restrict, update: cascade]

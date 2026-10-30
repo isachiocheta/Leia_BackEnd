@@ -7,14 +7,15 @@ function definirAssociacoes(modelos) {
   const integridade = { onDelete: 'RESTRICT', onUpdate: 'CASCADE' };
   const generoId = () => ({ name: 'generoId', field: 'genero_id', allowNull: false });
   const livroId = () => ({ name: 'livroId', field: 'livro_id', allowNull: false });
+  const cicloId = () => ({ name: 'cicloId', field: 'ciclo_id', allowNull: false });
 
   Genero.hasMany(Livro, { as: 'livros', foreignKey: generoId(), ...integridade });
   Livro.belongsTo(Genero, { as: 'genero', foreignKey: generoId(), ...integridade });
   // A obra cadastrada pode fundamentar vários ciclos sem duplicar o livro.
   Livro.hasMany(CicloLeitura, { as: 'ciclosLeitura', foreignKey: livroId(), ...integridade });
   CicloLeitura.belongsTo(Livro, { as: 'livro', foreignKey: livroId(), ...integridade });
-  CicloLeitura.hasMany(Encontro, { as: 'encontros', foreignKey: 'cicloLeituraId', ...integridade });
-  Encontro.belongsTo(CicloLeitura, { as: 'cicloLeitura', foreignKey: 'cicloLeituraId', ...integridade });
+  CicloLeitura.hasMany(Encontro, { as: 'encontros', foreignKey: cicloId(), ...integridade });
+  Encontro.belongsTo(CicloLeitura, { as: 'ciclo', foreignKey: cicloId(), ...integridade });
 
   Usuario.hasMany(ParticipacaoLeitura, { as: 'participacoesLeitura', foreignKey: 'usuarioId', ...integridade });
   ParticipacaoLeitura.belongsTo(Usuario, { as: 'usuario', foreignKey: 'usuarioId', ...integridade });
