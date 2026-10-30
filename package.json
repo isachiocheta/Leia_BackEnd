@@ -13,6 +13,7 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "test": "node --test testes/*.test.js",
     "test:integracao": "node --env-file-if-exists=.env --test testes/integracao/*.test.js",
+    "test:migracoes": "node --env-file-if-exists=.env --test testes/migracoes/*.test.js",
     "db:verificar": "node --env-file-if-exists=.env database/verificar-conexao.js",
     "db:migrar": "node --env-file-if-exists=.env database/executar-cli.js db:migrate",
     "db:estado": "node --env-file-if-exists=.env database/executar-cli.js db:migrate:status",

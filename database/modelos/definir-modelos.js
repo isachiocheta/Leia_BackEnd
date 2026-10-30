@@ -1,6 +1,7 @@
 'use strict';
 
 const { DataTypes } = require('sequelize');
+const { definirUsuario } = require('./usuario');
 
 // A estrutura física é definida pelas migrations. Estes modelos apenas a descrevem.
 // Um autor informado e um gênero por livro; associações M:N usam tabelas próprias.
@@ -26,17 +27,7 @@ function definirModelos(sequelize) {
     field,
   });
 
-  const Usuario = sequelize.define('Usuario', {
-    id: identificador(),
-    nome: { type: DataTypes.STRING(120), allowNull: false },
-    email: { type: DataTypes.STRING(254), allowNull: false, unique: 'usuarios_email_unico' },
-    perfil: {
-      type: DataTypes.STRING(20),
-      allowNull: false,
-      defaultValue: 'LEITOR',
-      validate: { isIn: [['ADMIN_CLUBE', 'LEITOR']] },
-    },
-  }, opcoes('usuarios'));
+  const Usuario = definirUsuario(sequelize);
 
   const Genero = sequelize.define('Genero', {
     id: identificador(),

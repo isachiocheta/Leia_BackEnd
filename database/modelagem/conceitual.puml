@@ -5,9 +5,11 @@ skinparam linetype ortho
 entity "Usuário" as usuario {
   * identificador
   --
-  * nome
-  * email {único}
-  * perfil {ADMIN_CLUBE, LEITOR}
+  * nome {até 100 caracteres, não vazio}
+  * email {único, minúsculo, sem espaços nas bordas}
+  * hash de senha
+  * perfil {ADMIN_CLUBE, LEITOR; padrão LEITOR}
+  * situação {PENDENTE, ATIVO, INATIVO; padrão PENDENTE}
 }
 
 entity "Gênero" as genero {
@@ -84,9 +86,15 @@ end note
 
 note as infraestrutura
   criadoEm e atualizadoEm são atributos técnicos de auditoria.
+  sessionVersion é uma versão técnica de credenciais/sessões:
+  inteiro obrigatório, com padrão zero e valor maior ou igual a zero.
   sequelize_meta controla migrations, fora do domínio do clube.
-  Nenhuma tabela de sessões é criada nesta etapa; sessões são
-  infraestrutura e não representam participações ou inscrições.
+  sessoes é infraestrutura compatível com connect-pg-simple:
+  sid (PK), sess (JSON obrigatório) e expire (timestamp(6) obrigatório,
+  sem fuso horário), com índice de expiração e sem outras colunas.
+  Não há FK para usuário: o conteúdo da sessão permanece em sess.
+  Sessões não representam participações ou inscrições do domínio.
+  Consultas públicas omitem o hash; o escopo credenciais o inclui.
   As migrations são a autoridade do schema; manter este diagrama,
   o modelo lógico e os modelos JavaScript consistentes com elas.
 end note

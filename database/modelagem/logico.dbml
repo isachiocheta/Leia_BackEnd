@@ -13,14 +13,22 @@ Project leia_mais {
 
 Table usuarios {
   id integer [pk, increment, not null]
-  nome varchar(120) [not null]
-  email varchar(254) [not null, unique]
+  nome varchar(100) [not null, note: 'Não pode ser vazio ou conter somente espaços em branco.']
+  email varchar(254) [not null, unique, note: 'Normalizado por trim/lower no model; SQL direto exige formato normalizado.']
+  senha_hash text [not null, note: 'Somente hash, sem valor padrão; omitido das consultas públicas.']
   perfil varchar(20) [not null, default: 'LEITOR', note: 'CHECK: perfil IN (ADMIN_CLUBE, LEITOR)']
+  situacao varchar(10) [not null, default: 'PENDENTE']
+  session_version integer [not null, default: 0, note: 'Versão técnica; zero é válido.']
   criado_em timestamptz [not null]
   atualizado_em timestamptz [not null]
 
   checks {
+    `nome ~ '[^[:space:]]'` [name: 'usuarios_nome_nao_vazio']
+    `email = lower(btrim(email)) AND length(btrim(email)) > 0` [name: 'usuarios_email_normalizado']
+    `length(btrim(senha_hash)) > 0` [name: 'usuarios_senha_hash_nao_vazio']
     `perfil IN ('ADMIN_CLUBE', 'LEITOR')` [name: 'usuarios_perfil_valido']
+    `situacao IN ('PENDENTE', 'ATIVO', 'INATIVO')` [name: 'usuarios_situacao_valida']
+    `session_version >= 0` [name: 'usuarios_session_version_nao_negativa']
   }
 }
 
@@ -104,6 +112,21 @@ Table sequelize_meta {
   Note: 'Tabela técnica: nomes das migrations executadas. Não pertence ao domínio.'
 }
 
+// Contrato técnico do connect-pg-simple; configurar tableName como sessoes.
+// Não há timestamps de auditoria, FK usuario_id nem colunas de outro store.
+// sess é JSON (não JSONB); expire é timestamp sem fuso, com precisão de 6 dígitos.
+Table sessoes {
+  sid varchar [pk, not null]
+  sess json [not null]
+  expire timestamp(6) [not null]
+
+  indexes {
+    expire [name: 'sessoes_expire_indice']
+  }
+
+  Note: 'Infraestrutura de sessão; o conteúdo JSON não cria relações do domínio.'
+}
+
 TableGroup dominio {
   usuarios
   generos
@@ -116,8 +139,10 @@ TableGroup dominio {
 
 TableGroup infraestrutura {
   sequelize_meta
+  sessoes
 }
 
 // criado_em/atualizado_em são metadados técnicos de auditoria das entidades.
-// Não há tabela de sessões nesta etapa. Sessões seriam infraestrutura,
-// separadas de participacoes_leitura e inscricoes_encontro, que pertencem ao domínio.
+// session_version também é metadado técnico; os padrões LEITOR/PENDENTE
+// não concedem privilégios administrativos ou ativação automática.
+// sessoes permanece separada de participacoes_leitura e inscricoes_encontro.
