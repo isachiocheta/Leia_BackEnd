@@ -34,7 +34,7 @@ function validarOperacaoCli(argumentos = process.argv.slice(2), variaveis = proc
   const { ambiente } = carregarAmbiente(variaveis);
   const destrutivos = new Set([
     'db:drop', 'db:migrate:undo', 'db:migrate:undo:all',
-    'db:seed', 'db:seed:all', 'db:seed:undo', 'db:seed:undo:all',
+    'db:seed:undo', 'db:seed:undo:all',
     'db:migrate:schema:timestamps:add',
   ]);
 

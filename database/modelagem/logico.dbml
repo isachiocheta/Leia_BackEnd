@@ -174,7 +174,8 @@ Table inscricoes_encontro {
 
 // FKs obrigatórias: dependentes participam totalmente, principais admitem 0..N dependentes.
 // RESTRICT preserva histórico ao excluir usuários/ciclos. A única cascata de exclusão
-// é encontros -> inscricoes_encontro; atualizações das chaves propagam por CASCADE.
+// do domínio é encontros -> inscricoes_encontro; a proveniência técnica abaixo
+// tem limpeza própria. Atualizações das chaves propagam por CASCADE.
 Ref: livros.genero_id > generos.id [delete: restrict, update: cascade]
 Ref: ciclos_leitura.livro_id > livros.id [delete: restrict, update: cascade]
 Ref: encontros.ciclo_id > ciclos_leitura.id [delete: restrict, update: cascade]
@@ -189,6 +190,35 @@ Table sequelize_meta {
   name varchar(255) [pk, not null]
   Note: 'Tabela técnica: nomes das migrations executadas. Não pertence ao domínio.'
 }
+
+// Contrato técnico do seederStorage do sequelize-cli; a migration cria a tabela.
+Table sequelize_seeds {
+  name varchar(255) [pk, not null]
+  Note: 'Histórico de execução dos seeders no banco; name mantém o contrato do CLI.'
+}
+
+Table generos_semeados {
+  semeador varchar(255) [not null]
+  genero_id integer [not null]
+
+  indexes {
+    (semeador, genero_id) [pk]
+  }
+
+  Note: '''
+    Proveniência técnica: apenas IDs de gêneros efetivamente criados pelo seeder.
+    Gêneros preexistentes reutilizados não são registrados e não são apagados
+    pela reversão. A FK CASCADE limpa somente esta metadata quando o gênero
+    é excluído; a FK RESTRICT de livros continua protegendo referências em uso.
+    semeador identifica o arquivo, sem FK para sequelize_seeds, pois o CLI grava
+    o histórico depois que o seeder retorna.
+    Carga padrão: Aventura, Conto, Fábula, Ficção científica, Poesia e Romance.
+    Não cria usuários, livros ou dados demonstrativos. O bootstrap administrativo
+    é um comando separado, sem novos atributos de domínio.
+  '''
+}
+
+Ref: generos_semeados.genero_id > generos.id [delete: cascade, update: cascade]
 
 // Contrato técnico do connect-pg-simple; configurar tableName como sessoes.
 // Não há timestamps de auditoria, FK usuario_id nem colunas de outro store.
@@ -217,6 +247,8 @@ TableGroup dominio {
 
 TableGroup infraestrutura {
   sequelize_meta
+  sequelize_seeds
+  generos_semeados
   sessoes
 }
 

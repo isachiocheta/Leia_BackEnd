@@ -14,5 +14,5 @@ module.exports = {
   config: caminho.join(__dirname, 'configuracao/banco-cli.js'),
   'models-path': caminho.join(__dirname, 'database/modelos'),
   'migrations-path': caminho.join(__dirname, 'database/migracoes'),
-  'seeders-path': caminho.join(__dirname, 'database/semeadores'),
+  'seeders-path': caminho.join(__dirname, 'database/semeadores/referencias'),
 };

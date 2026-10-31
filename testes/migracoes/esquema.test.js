@@ -20,9 +20,11 @@ const migracaoCiclos = '20261030030000-completar-ciclos-leitura.js';
 const migracaoEncontros = '20261030040000-completar-encontros.js';
 const migracaoParticipacoes = '20261030050000-completar-participacoes-leitura.js';
 const migracaoInscricoes = '20261030051000-ajustar-inscricoes-encontro.js';
+const migracaoReferencias = '20261030060000-criar-controle-referencias.js';
 const migracoesConhecidas = [
   migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros,
   migracaoLivros, migracaoCiclos, migracaoEncontros, migracaoParticipacoes, migracaoInscricoes,
+  migracaoReferencias,
 ];
 let conexao;
 
@@ -132,6 +134,15 @@ async function conferirSchemaAtual(migracoesEsperadas = migracoesConhecidas) {
     assert.deepEqual(unico.fields.map((campo) => campo.attribute), ['usuario_id', 'ciclo_id']);
   }
   await conferirFkInscricao(migracoesEsperadas.includes(migracaoInscricoes) ? 'c' : 'r');
+  if (migracoesEsperadas.includes(migracaoReferencias)) {
+    const historico = await conexao.getQueryInterface().describeTable('sequelize_seeds');
+    assert.deepEqual(Object.keys(historico), ['name']);
+    assert.equal(historico.name.primaryKey, true);
+    const autoria = await conexao.getQueryInterface().describeTable('generos_semeados');
+    assert.deepEqual(Object.keys(autoria).sort(), ['genero_id', 'semeador']);
+    assert.equal(autoria.genero_id.primaryKey, true);
+    assert.equal(autoria.semeador.primaryKey, true);
+  }
   assert.deepEqual(await migracoesAplicadas(), migracoesEsperadas);
 }
 
@@ -146,6 +157,7 @@ before(async () => {
   const conhecidas = new Set([
     'usuarios', 'generos', 'livros', 'ciclos_leitura', 'encontros',
     'participacoes_leitura', 'inscricoes_encontro', 'sessoes', 'sequelize_meta',
+    'sequelize_seeds', 'generos_semeados',
   ]);
   assert.ok(tabelas.every((tabela) => conhecidas.has(tabela)), 'Use um banco de teste exclusivo para este ciclo.');
 
@@ -349,8 +361,8 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
   `, { bind: [usuariosAdesao[0].id, encontrosAdesao[0].id] });
 
   try {
-    executarCli('db:migrate');
-    await conferirSchemaAtual();
+    executarCli('db:migrate', ['--to', migracaoInscricoes]);
+    await conferirSchemaAtual(migracoesConhecidas.slice(0, 9));
     const [participacoes] = await conexao.query(`
       SELECT id, usuario_id, ciclo_id, pagina_atual, concluida_em FROM participacoes_leitura WHERE id = $1
     `, { bind: [participacoesLegadas[0].id] });
@@ -378,8 +390,8 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     });
     assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 7));
 
-    executarCli('db:migrate');
-    await conferirSchemaAtual();
+    executarCli('db:migrate', ['--to', migracaoInscricoes]);
+    await conferirSchemaAtual(migracoesConhecidas.slice(0, 9));
   } finally {
     validarDestinoTeste(conexao);
     await conexao.query('DELETE FROM inscricoes_encontro WHERE id = $1', { bind: [inscricoesLegadas[0].id] });
@@ -391,7 +403,15 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
     await conexao.query('DELETE FROM usuarios WHERE id = $1', { bind: [usuariosAdesao[0].id] });
   }
 
-  // A ordem inversa começa pelas junções, conservando os schemas anteriores.
+  executarCli('db:migrate');
+  await conferirSchemaAtual();
+  executarCli('db:migrate:undo');
+  const tabelasAposControle = await conexao.getQueryInterface().showAllTables();
+  assert.ok(!tabelasAposControle.includes('sequelize_seeds'));
+  assert.ok(!tabelasAposControle.includes('generos_semeados'));
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 9));
+
+  // A ordem inversa continua pelas junções, conservando os schemas anteriores.
   executarCli('db:migrate:undo');
   await conferirFkInscricao('r');
   assert.deepEqual(await conexao.getQueryInterface().describeTable('inscricoes_encontro'), inscricoesAnteriores);

@@ -63,6 +63,17 @@ entity "Inscrição em encontro" as inscricao {
   par usuário / encontro {único}
 }
 
+package "Metadados técnicos de carga" {
+  entity "sequelize_seeds" as historico_seeds <<técnica>> {
+    * nome do arquivo {PK}
+  }
+
+  entity "generos_semeados" as origem_genero <<técnica>> {
+    * semeador {PK}
+    * gênero inserido {PK, FK}
+  }
+}
+
 genero ||--o{ livro : classifica
 livro ||--o{ ciclo : fundamenta
 ciclo ||--o{ encontro : organiza
@@ -70,6 +81,25 @@ usuario ||--o{ participacao : adere
 ciclo ||--o{ participacao : recebe
 usuario ||--o{ inscricao : manifesta intenção
 encontro ||--o{ inscricao : recebe
+genero ||..o{ origem_genero : proveniência técnica
+
+note right of origem_genero
+  Registra apenas IDs que o seeder realmente inseriu.
+  Um gênero preexistente reutilizado não recebe proveniência.
+  A reversão só pode remover os gêneros comprovadamente criados.
+  Excluir gênero limpa sua metadata (CASCADE), sem apagar
+  livros ou histórico do domínio; a FK dos livros segue RESTRICT.
+  semeador identifica o arquivo, sem FK para sequelize_seeds:
+  o CLI registra a execução após o retorno do seeder.
+end note
+
+note right of historico_seeds
+  Histórico de execução do seederStorage no banco.
+  A carga padrão contém apenas gêneros de referência:
+  Aventura, Conto, Fábula, Ficção científica, Poesia e Romance.
+  Não contém usuários, livros ou dados demonstrativos.
+  O bootstrap administrativo é um comando separado.
+end note
 
 note right of participacao
   Participação é adesão do usuário ao ciclo de leitura.
@@ -138,6 +168,10 @@ note as infraestrutura
   sessionVersion é uma versão técnica de credenciais/sessões:
   inteiro obrigatório, com padrão zero e valor maior ou igual a zero.
   sequelize_meta controla migrations, fora do domínio do clube.
+  sequelize_seeds controla a execução dos seeders de referência;
+  generos_semeados guarda sua proveniência, sem novos atributos
+  nas entidades do domínio. A cascata dessa metadata técnica
+  não apaga o histórico de participações ou inscrições.
   sessoes é infraestrutura compatível com connect-pg-simple:
   sid (PK), sess (JSON obrigatório) e expire (timestamp(6) obrigatório,
   sem fuso horário), com índice de expiração e sem outras colunas.

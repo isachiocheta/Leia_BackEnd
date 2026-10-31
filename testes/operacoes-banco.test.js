@@ -62,7 +62,7 @@ async function comAmbiente(variaveis, executar) {
 test('permite operações destrutivas somente com ambiente e banco de teste validados', () => {
   const comandos = [
     'db:drop', 'db:migrate:undo', 'db:migrate:undo:all',
-    'db:seed', 'db:seed:all', 'db:seed:undo', 'db:seed:undo:all',
+    'db:seed:undo', 'db:seed:undo:all',
     'db:migrate:schema:timestamps:add',
   ];
 
@@ -89,9 +89,9 @@ test('permite operações destrutivas somente com ambiente e banco de teste vali
   }
 });
 
-test('permite migração e consulta de estado no ambiente normal', () => {
+test('permite migração, consulta de estado e carga aditiva de referência no ambiente normal', () => {
   for (const ambiente of ['development', 'production']) {
-    for (const comando of ['db:migrate', 'db:migrate:status']) {
+    for (const comando of ['db:migrate', 'db:migrate:status', 'db:seed', 'db:seed:all']) {
       assert.doesNotThrow(() => validarOperacaoCli([comando], { ...ambienteSeguro, NODE_ENV: ambiente }));
     }
   }

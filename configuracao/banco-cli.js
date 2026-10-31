@@ -10,6 +10,8 @@ module.exports = {
     ...criarOpcoesConexao(),
     migrationStorage: 'sequelize',
     migrationStorageTableName: 'sequelize_meta',
-    seederStorage: 'none',
+    seederStorage: 'sequelize',
+    seederStorageTableName: 'sequelize_seeds',
+    seederStorageTimestamps: false,
   },
 };

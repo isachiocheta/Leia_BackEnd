@@ -14,12 +14,17 @@
     "test": "node --test testes/*.test.js",
     "test:integracao": "node --env-file-if-exists=.env --test testes/integracao/*.test.js",
     "test:migracoes": "node --env-file-if-exists=.env --test testes/migracoes/*.test.js",
+    "test:cargas": "node --env-file-if-exists=.env --test testes/cargas/*.test.js",
     "db:verificar": "node --env-file-if-exists=.env database/verificar-conexao.js",
     "db:migrar": "node --env-file-if-exists=.env database/executar-cli.js db:migrate",
     "db:estado": "node --env-file-if-exists=.env database/executar-cli.js db:migrate:status",
-    "db:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:migrate:undo"
+    "db:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:migrate:undo",
+    "db:referencias": "node --env-file-if-exists=.env database/executar-cli.js db:seed:all",
+    "db:referencias:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:seed:undo --seed 20261030061000-carregar-generos-referencia.js",
+    "db:admin": "node --env-file-if-exists=.env database/bootstrap-administrativo.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
