@@ -36,8 +36,7 @@ describe('Aplicação HTTP', () => {
     assert.equal(resposta.status, 200);
     assert.match(resposta.headers.get('content-type'), /application\/json/);
     assert.deepEqual(await resposta.json(), {
-      aplicacao: 'Leia+',
-      status: 'ok',
+      data: { aplicacao: 'Leia+', status: 'ok' },
     });
   });
 
@@ -58,7 +57,7 @@ describe('Aplicação HTTP', () => {
 
     assert.equal(resposta.status, 200);
     assert.equal(resposta.headers.get('cache-control'), 'no-store');
-    assert.deepEqual(await resposta.json(), { aplicacao: 'Leia+', status: 'pronto' });
+    assert.deepEqual(await resposta.json(), { data: { aplicacao: 'Leia+', status: 'pronto' } });
   });
 
   it('retorna prontidão 503 sem expor falhas ou credenciais', async (t) => {
@@ -69,7 +68,9 @@ describe('Aplicação HTTP', () => {
 
     assert.equal(resposta.status, 503);
     assert.match(resposta.headers.get('content-type'), /application\/json/);
-    assert.deepEqual(await resposta.json(), { aplicacao: 'Leia+', status: 'indisponivel' });
+    assert.deepEqual(await resposta.json(), {
+      error: { code: 'SERVICE_UNAVAILABLE', message: 'Serviço temporariamente indisponível.' },
+    });
   });
 
   it('retorna 404 em JSON para uma rota inexistente', async () => {
@@ -78,7 +79,7 @@ describe('Aplicação HTTP', () => {
     assert.equal(resposta.status, 404);
     assert.match(resposta.headers.get('content-type'), /application\/json/);
     assert.deepEqual(await resposta.json(), {
-      erro: { mensagem: 'Rota não encontrada.' },
+      error: { code: 'NOT_FOUND', message: 'Recurso não encontrado.' },
     });
   });
 
@@ -92,7 +93,7 @@ describe('Aplicação HTTP', () => {
     assert.equal(resposta.status, 400);
     assert.match(resposta.headers.get('content-type'), /application\/json/);
     assert.deepEqual(await resposta.json(), {
-      erro: { mensagem: 'JSON inválido.' },
+      error: { code: 'INVALID_JSON', message: 'JSON inválido.' },
     });
   });
 
@@ -106,9 +107,10 @@ describe('Aplicação HTTP', () => {
     assert.equal(resposta.status, 413);
     assert.match(resposta.headers.get('content-type'), /application\/json/);
     const corpo = await resposta.json();
-    assert.equal(typeof corpo.erro.mensagem, 'string');
-    assert.ok(corpo.erro.mensagem.length > 0);
-    assert.equal(corpo.erro.stack, undefined);
+    assert.equal(corpo.error.code, 'PAYLOAD_TOO_LARGE');
+    assert.equal(typeof corpo.error.message, 'string');
+    assert.ok(corpo.error.message.length > 0);
+    assert.equal(corpo.error.stack, undefined);
   });
 
   it('aplica os cabeçalhos de segurança do Helmet', async () => {
@@ -167,6 +169,19 @@ describe('Aplicação HTTP', () => {
       origemNaoPermitida,
     );
     assert.notEqual(resposta.headers.get('access-control-allow-origin'), '*');
+    assert.equal(resposta.headers.get('access-control-allow-origin'), null);
+    assert.equal(resposta.headers.get('access-control-allow-credentials'), null);
+    assert.match(resposta.headers.get('vary'), /Origin/i);
     await resposta.json();
+  });
+
+  it('não publica rotas artificiais de erro ou recursos ainda não implementados', async () => {
+    for (const rota of ['/api/erro', '/api/erros/500', '/api/teste/erro', '/api/usuarios', '/api/livros']) {
+      const resposta = await fetch(`${endereco}${rota}`);
+      assert.equal(resposta.status, 404);
+      assert.deepEqual(await resposta.json(), {
+        error: { code: 'NOT_FOUND', message: 'Recurso não encontrado.' },
+      });
+    }
   });
 });

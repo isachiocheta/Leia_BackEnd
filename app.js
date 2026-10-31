@@ -1,33 +1,31 @@
 'use strict';
 
 const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
 const { carregarAmbiente } = require('./configuracao/ambiente');
+const { configurarHttp } = require('./intermediarios/http');
 const { rotaNaoEncontrada, tratarErros } = require('./intermediarios/erros');
+const { ErroAplicacao } = require('./utilitarios/erro-aplicacao');
+const { responderDetalhe } = require('./utilitarios/respostas');
 const banco = require('./database/conexao');
 
 const configuracao = carregarAmbiente();
 const app = express();
 
 app.set('env', configuracao.ambiente);
-app.disable('x-powered-by');
-app.use(helmet());
-app.use(cors({ origin: configuracao.origemPermitida, credentials: true }));
-app.use(express.json({ limit: '100kb' }));
+configurarHttp(app, configuracao);
 
 app.get('/api/health', (requisicao, resposta) => {
-  resposta.status(200).json({ aplicacao: 'Leia+', status: 'ok' });
+  responderDetalhe(resposta, { aplicacao: 'Leia+', status: 'ok' });
 });
 
-app.get('/api/ready', async (requisicao, resposta) => {
+app.get('/api/ready', async (requisicao, resposta, proximo) => {
   resposta.set('Cache-Control', 'no-store');
 
   try {
     await banco.verificarConexao();
-    resposta.status(200).json({ aplicacao: 'Leia+', status: 'pronto' });
+    responderDetalhe(resposta, { aplicacao: 'Leia+', status: 'pronto' });
   } catch {
-    resposta.status(503).json({ aplicacao: 'Leia+', status: 'indisponivel' });
+    proximo(new ErroAplicacao('SERVICE_UNAVAILABLE'));
   }
 });
 

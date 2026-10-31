@@ -76,13 +76,13 @@ describe('Conexão real com PostgreSQL', { timeout: 15_000 }, () => {
   it('mantém health disponível e responde ready 200 com a conexão real', async () => {
     const health = await fetch(`${endereco}/api/health`);
     assert.equal(health.status, 200);
-    assert.deepEqual(await health.json(), { aplicacao: 'Leia+', status: 'ok' });
+    assert.deepEqual(await health.json(), { data: { aplicacao: 'Leia+', status: 'ok' } });
 
     const ready = await fetch(`${endereco}/api/ready`);
     assert.equal(ready.status, 200);
     assert.match(ready.headers.get('content-type'), /application\/json/);
     const corpo = await ready.json();
-    assert.equal(corpo.aplicacao, 'Leia+');
+    assert.deepEqual(corpo, { data: { aplicacao: 'Leia+', status: 'pronto' } });
   });
 
   it('não cria tabelas ao verificar a conexão ou consultar ready', async () => {
