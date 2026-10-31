@@ -7,7 +7,8 @@ const { rotaNaoEncontrada, tratarErros } = require('./intermediarios/erros');
 const { ErroAplicacao } = require('./utilitarios/erro-aplicacao');
 const { responderDetalhe } = require('./utilitarios/respostas');
 const banco = require('./database/conexao');
-const { atenderAutenticacao } = require('./autenticacao/servico');
+const { atenderAutenticacao, identificarRequisicao } = require('./autenticacao/servico');
+const { criarRotasUsuarios } = require('./usuarios/rotas');
 
 const configuracao = carregarAmbiente();
 const app = express();
@@ -33,6 +34,9 @@ app.get('/api/ready', async (requisicao, resposta, proximo) => {
 // Cria o pool somente ao usar autenticação: health e a importação não dependem
 // de uma conexão de banco ou iniciam tarefas de sessão em segundo plano.
 app.use('/api/auth', atenderAutenticacao);
+app.use('/api/usuarios', identificarRequisicao, criarRotasUsuarios({
+  obterUsuario: () => banco.obterConexao().models.Usuario,
+}));
 
 app.use(rotaNaoEncontrada);
 app.use(tratarErros);

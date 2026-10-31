@@ -42,6 +42,14 @@ function atenderAutenticacao(requisicao, resposta, proximo) {
   }
 }
 
+function identificarRequisicao(requisicao, resposta, proximo) {
+  try {
+    return obterAutenticacao().identificar(requisicao, resposta, proximo);
+  } catch {
+    return proximo(new ErroAplicacao('SERVICE_UNAVAILABLE'));
+  }
+}
+
 async function encerrarAutenticacao() {
   try {
     if (autenticacao) await autenticacao.encerrar();
@@ -53,4 +61,4 @@ async function encerrarAutenticacao() {
   }
 }
 
-module.exports = { atenderAutenticacao, encerrarAutenticacao };
+module.exports = { atenderAutenticacao, identificarRequisicao, encerrarAutenticacao };

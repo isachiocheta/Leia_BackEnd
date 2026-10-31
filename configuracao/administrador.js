@@ -1,6 +1,7 @@
 'use strict';
 
 const { Validator } = require('sequelize');
+const { senhaValida } = require('../utilitarios/senha');
 
 function configuracaoInvalida(mensagem) {
   const erro = new Error(mensagem);
@@ -31,7 +32,7 @@ function carregarAdministrador(variaveis = process.env) {
   }
   // A senha é usada exatamente como recebida, inclusive espaços e Unicode.
   // Contamos caracteres Unicode no mínimo e bytes UTF-8 no limite do bcrypt.
-  if (Array.from(senha).length < 10 || Buffer.byteLength(senha, 'utf8') > 72) {
+  if (!senhaValida(senha)) {
     configuracaoInvalida('ADMIN_SENHA deve ter no mínimo 10 caracteres e no máximo 72 bytes UTF-8.');
   }
 

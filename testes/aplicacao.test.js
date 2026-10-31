@@ -176,7 +176,7 @@ describe('Aplicação HTTP', () => {
   });
 
   it('não publica rotas artificiais de erro ou recursos ainda não implementados', async () => {
-    for (const rota of ['/api/erro', '/api/erros/500', '/api/teste/erro', '/api/usuarios', '/api/livros']) {
+    for (const rota of ['/api/erro', '/api/erros/500', '/api/teste/erro', '/api/ciclos', '/api/livros']) {
       const resposta = await fetch(`${endereco}${rota}`);
       assert.equal(resposta.status, 404);
       assert.deepEqual(await resposta.json(), {

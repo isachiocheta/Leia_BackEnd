@@ -59,9 +59,31 @@ test('tabela ausente causa falha e não é criada automaticamente', async () => 
       throw ausencia;
     },
   } });
-  await assert.rejects(executar(armazenamento, 'get', 'sid'), (erro) => erro === ausencia);
+  await assert.rejects(executar(armazenamento, 'get', 'sid'), (erro) => (
+    erro.codigo === 'SERVICE_UNAVAILABLE' && erro.status === 503 && !erro.message.includes(ausencia.message)
+  ));
   assert.equal(consultas.length, 1);
   assert.match(consultas[0], /^SELECT sess FROM "sessoes"/);
   assert.doesNotMatch(consultas.join(' '), /CREATE|ALTER/);
+  await armazenamento.close();
+});
+
+test('callbacks usados internamente pelo express-session também recebem somente erros seguros', async () => {
+  const reservado = 'senha-reservada SELECT senha_hash postgresql://usuario:segredo@host/banco';
+  const armazenamento = criarArmazenamentoSessoes({ pool: {
+    async query() { throw new Error(reservado); },
+  } });
+  for (const [metodo, argumentos] of [
+    ['get', ['sid']], ['set', ['sid', { cookie: { expires: new Date() } }]], ['destroy', ['sid']],
+  ]) {
+    await assert.rejects(executar(armazenamento, metodo, ...argumentos), (erro) => {
+      assert.equal(erro.status, 503);
+      assert.equal(erro.codigo, 'SERVICE_UNAVAILABLE');
+      assert.ok(!erro.stack.includes(reservado));
+      assert.equal(erro.cause, undefined);
+      assert.equal(erro.sql, undefined);
+      return true;
+    });
+  }
   await armazenamento.close();
 });

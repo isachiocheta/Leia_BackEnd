@@ -6,8 +6,10 @@ const { body, validationResult } = require('express-validator');
 const { criarPassaporte } = require('./passaporte');
 const { criarArmazenamentoSessoes } = require('./armazenamento-sessoes');
 const { obterTokenCsrf, protegerCsrf } = require('./csrf');
-const { criarLimiteLogin } = require('./limite-login');
-const { rejeitarCamposDesconhecidos } = require('../validacao/requisicao');
+const { criarLimiteTentativas } = require('./limite-tentativas');
+const { rejeitarCamposDesconhecidos, validarRequisicao, selecionarCamposPermitidos } = require('../validacao/requisicao');
+const { senhaValida } = require('../utilitarios/senha');
+const { cadastrarLeitor, usuarioPublico } = require('../servicos/usuarios');
 const { ErroAplicacao } = require('../utilitarios/erro-aplicacao');
 const { responderDetalhe, responderSemConteudo } = require('../utilitarios/respostas');
 
@@ -29,15 +31,11 @@ function protegerRota(...perfis) {
   return [exigirAutenticacao, exigirPerfil(...perfis), protegerCsrf];
 }
 
-function usuarioPublico(usuario) {
-  const { id, nome, email, perfil, situacao } = usuario;
-  return { id, nome, email, perfil, situacao };
-}
-
-function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now, limiteLogin = {} }) {
+function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now, limiteLogin = {}, limiteCadastro = {} }) {
   const armazenamento = criarArmazenamentoSessoes({ pool });
   const passaporte = criarPassaporte({ obterUsuario });
   const roteador = express.Router();
+  const identificar = express.Router();
   const iniciarSessao = session({
     name: configuracao.nomeCookie,
     secret: configuracao.segredo,
@@ -74,10 +72,10 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
       return proximo();
     });
   }
-  roteador.use((requisicao, resposta, proximo) => {
+  identificar.use((requisicao, resposta, proximo) => {
     iniciarSessao(requisicao, resposta, (erro) => proximo(erro ? falhaPersistencia() : undefined));
   });
-  roteador.use((requisicao, resposta, proximo) => {
+  identificar.use((requisicao, resposta, proximo) => {
     const sessao = requisicao.session;
     if (requisicao.secure) sessao.cookie.secure = true;
     const temEstado = sessao.passport || sessao.csrfToken || sessao.expiraEm !== undefined;
@@ -88,8 +86,8 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
     if (temEstado) fixarPrazo(sessao);
     return proximo();
   });
-  roteador.use(passaporte.initialize());
-  roteador.use((requisicao, resposta, proximo) => {
+  identificar.use(passaporte.initialize());
+  identificar.use((requisicao, resposta, proximo) => {
     const tinhaIdentidade = Object.hasOwn(requisicao.session.passport || {}, 'user');
     passaporte.session()(requisicao, resposta, (erro) => {
       if (erro) return proximo(falhaPersistencia());
@@ -97,6 +95,7 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
       return proximo();
     });
   });
+  roteador.use(identificar);
 
   roteador.get('/csrf', (requisicao, resposta, proximo) => {
     if (requisicao.session.expiraEm === undefined) iniciarPrazo(requisicao.session);
@@ -107,7 +106,7 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
     });
   });
   roteador.post('/login',
-    criarLimiteLogin({ ...limiteLogin, agora }),
+    criarLimiteTentativas({ ...limiteLogin, agora }),
     protegerCsrf,
     rejeitarCamposDesconhecidos(['email', 'senha']),
     body('email').isString().bail().trim().toLowerCase().isLength({ min: 3, max: 254 }).isEmail(),
@@ -130,6 +129,18 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
         });
       })(requisicao, resposta, proximo);
     });
+  roteador.post('/cadastro',
+    criarLimiteTentativas({ maximo: 5, ...limiteCadastro, agora }),
+    protegerCsrf,
+    rejeitarCamposDesconhecidos(['nome', 'email', 'senha']),
+    body('nome').isString().bail().trim().custom((nome) => Array.from(nome).length >= 2 && Array.from(nome).length <= 100),
+    body('email').isString().bail().trim().toLowerCase().isLength({ max: 254 }).isEmail(),
+    body('senha').custom(senhaValida),
+    validarRequisicao,
+    async (requisicao, resposta) => {
+      const dados = selecionarCamposPermitidos(requisicao, ['nome', 'email', 'senha']);
+      responderDetalhe(resposta, await cadastrarLeitor(dados, obterUsuario()), 201);
+    });
   roteador.get('/me', ...protegerRota('ADMIN_CLUBE', 'LEITOR'), (requisicao, resposta) => {
     responderDetalhe(resposta, usuarioPublico(requisicao.user));
   });
@@ -143,7 +154,7 @@ function criarAutenticacao({ configuracao, pool, obterUsuario, agora = Date.now,
       });
     });
   });
-  return { roteador, encerrar: () => armazenamento.close() };
+  return { roteador, identificar, encerrar: () => armazenamento.close() };
 }
 
 module.exports = { criarAutenticacao, exigirAutenticacao, exigirPerfil, protegerRota };

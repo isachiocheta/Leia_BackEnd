@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { criarLimiteLogin } = require('../autenticacao/limite-login');
+const { criarLimiteTentativas } = require('../autenticacao/limite-tentativas');
 const { obterTokenCsrf, protegerCsrf } = require('../autenticacao/csrf');
 const { protegerRota, exigirPerfil } = require('../autenticacao/rotas');
 
@@ -49,7 +49,7 @@ test('proteção exige autenticação e perfil antes de ler o token CSRF', () =>
 
 test('limite de login é por IP e janela fixa, com Retry-After e liberação ao vencer', () => {
   let instante = 1000;
-  const limitar = criarLimiteLogin({ maximo: 2, janelaMs: 15000, agora: () => instante });
+  const limitar = criarLimiteTentativas({ maximo: 2, janelaMs: 15000, agora: () => instante });
   const cabecalhos = {};
   const resposta = { set: (chave, valor) => { cabecalhos[chave] = valor; } };
   const aplicarLimite = (ip) => {
@@ -65,5 +65,5 @@ test('limite de login é por IP e janela fixa, com Retry-After e liberação ao 
   assert.equal(aplicarLimite('127.0.0.2'), undefined);
   instante = 16000;
   assert.equal(aplicarLimite('127.0.0.1'), undefined);
-  assert.throws(() => criarLimiteLogin({ maximo: 0 }), TypeError);
+  assert.throws(() => criarLimiteTentativas({ maximo: 0 }), TypeError);
 });

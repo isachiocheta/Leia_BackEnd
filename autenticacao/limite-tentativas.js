@@ -2,11 +2,11 @@
 
 const { ErroAplicacao } = require('../utilitarios/erro-aplicacao');
 
-function criarLimiteLogin({ maximo = 10, janelaMs = 15 * 60 * 1000, agora = Date.now } = {}) {
+function criarLimiteTentativas({ maximo = 10, janelaMs = 15 * 60 * 1000, agora = Date.now } = {}) {
   if (!Number.isInteger(maximo) || maximo < 1 || !Number.isSafeInteger(janelaMs) || janelaMs < 1) {
-    throw new TypeError('Limite de login inválido.');
+    throw new TypeError('Limite de tentativas inválido.');
   }
-  // Limite por IP para esta instalação. Não guarda email, senha, SID ou token.
+  // Limite por IP e operação. Não guarda email, senha, SID ou token.
   // A aplicação não confia em X-Forwarded-For enviado diretamente pelo cliente.
   const tentativas = new Map();
   return (requisicao, resposta, proximo) => {
@@ -31,4 +31,4 @@ function criarLimiteLogin({ maximo = 10, janelaMs = 15 * 60 * 1000, agora = Date
   };
 }
 
-module.exports = { criarLimiteLogin };
+module.exports = { criarLimiteTentativas };
