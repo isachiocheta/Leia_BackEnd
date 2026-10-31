@@ -1,10 +1,13 @@
 'use strict';
 
 const { carregarAmbiente } = require('./configuracao/ambiente');
+const { carregarConfiguracaoSessao } = require('./configuracao/sessao');
+const { encerrarAutenticacao } = require('./autenticacao/servico');
 const banco = require('./database/conexao');
 
 function iniciarServidor() {
   const { porta } = carregarAmbiente();
+  carregarConfiguracaoSessao();
   const app = require('./app');
   const servidor = app.listen(porta);
   let encerrando = false;
@@ -28,7 +31,10 @@ function iniciarServidor() {
 
     servidor.close(async (erro) => {
       try {
-        await banco.encerrarConexao();
+        const resultados = await Promise.allSettled([encerrarAutenticacao(), banco.encerrarConexao()]);
+        if (resultados.some((resultado) => resultado.status === 'rejected')) {
+          throw new Error('Falha ao encerrar conexões.');
+        }
         if (erro) throw erro;
         console.info('Leia+ encerrado.');
       } catch {
@@ -55,7 +61,8 @@ function iniciarServidor() {
     removerSinais();
     console.error('Não foi possível iniciar o servidor:', erro.message);
     process.exitCode = 1;
-    banco.encerrarConexao().catch(() => {
+    Promise.allSettled([encerrarAutenticacao(), banco.encerrarConexao()]).then((resultados) => {
+      if (resultados.every((resultado) => resultado.status === 'fulfilled')) return;
       console.error('Não foi possível encerrar as conexões PostgreSQL.');
     });
   });
