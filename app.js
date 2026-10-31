@@ -9,6 +9,7 @@ const { responderDetalhe } = require('./utilitarios/respostas');
 const banco = require('./database/conexao');
 const { atenderAutenticacao, identificarRequisicao } = require('./autenticacao/servico');
 const { criarRotasUsuarios } = require('./usuarios/rotas');
+const { criarRotasPerfil } = require('./perfil/rotas');
 
 const configuracao = carregarAmbiente();
 const app = express();
@@ -35,6 +36,9 @@ app.get('/api/ready', async (requisicao, resposta, proximo) => {
 // de uma conexão de banco ou iniciam tarefas de sessão em segundo plano.
 app.use('/api/auth', atenderAutenticacao);
 app.use('/api/usuarios', identificarRequisicao, criarRotasUsuarios({
+  obterUsuario: () => banco.obterConexao().models.Usuario,
+}));
+app.use('/api/me', identificarRequisicao, criarRotasPerfil({
   obterUsuario: () => banco.obterConexao().models.Usuario,
 }));
 
