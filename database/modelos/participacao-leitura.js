@@ -31,8 +31,9 @@ function definirParticipacaoLeitura(sequelize) {
     underscored: true,
     indexes: [{ unique: true, name: 'participacoes_leitura_usuario_ciclo_unico', fields: ['usuario_id', 'ciclo_id'] }],
     // Participação é adesão ao ciclo. Usuário ativo e limite superior da página
-    // dependem de outras entidades e pertencem aos serviços. Não há percentual
-    // ou contadores armazenados, nem conclusão derivada automaticamente da página.
+    // dependem de outras entidades e são verificados no serviço sob locks. Não
+    // há percentual armazenado; a data de conclusão acompanha a página final
+    // atomicamente no serviço, sem inferência por percentual arredondado.
   });
 }
 

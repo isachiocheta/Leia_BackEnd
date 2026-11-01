@@ -7,13 +7,15 @@ const { encerrarSessaoAposTrocaSenha } = require('../autenticacao/encerramento-s
 const { alterarNome, alterarSenha } = require('../servicos/perfil');
 const { senhaValida } = require('../utilitarios/senha');
 const { responderDetalhe } = require('../utilitarios/respostas');
+const { criarRotasMinhasParticipacoes } = require('../participacoes/rotas');
 const {
   rejeitarCamposDesconhecidos, rejeitarPatchVazio, validarRequisicao, selecionarCamposPermitidos,
 } = require('../validacao/requisicao');
 
-function criarRotasPerfil({ obterUsuario }) {
+function criarRotasPerfil({ obterUsuario, obterConexao = () => obterUsuario().sequelize }) {
   const roteador = express.Router();
   roteador.use(...protegerRota('ADMIN_CLUBE', 'LEITOR'));
+  roteador.use('/participacoes', criarRotasMinhasParticipacoes({ obterConexao }));
   roteador.patch('/',
     rejeitarCamposDesconhecidos(['nome']),
     rejeitarPatchVazio(['nome']),

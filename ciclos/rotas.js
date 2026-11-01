@@ -7,6 +7,7 @@ const { protegerCsrf } = require('../autenticacao/csrf');
 const { responderDetalhe, responderLista, responderSemConteudo } = require('../utilitarios/respostas');
 const { validarIdPositivo, validarDataCivil, validarRequisicao, rejeitarCamposDesconhecidos, rejeitarPatchVazio, selecionarCamposPermitidos } = require('../validacao/requisicao');
 const servico = require('../servicos/ciclos');
+const { criarRotasParticipacoesCiclo } = require('../participacoes/rotas');
 
 function regrasCiclo(parcial = false) {
   const nome = body('nome').isString().bail().trim().isLength({ min: 1, max: 120 });
@@ -21,6 +22,7 @@ function regrasCiclo(parcial = false) {
 function criarRotasCiclos({ obterConexao, agora = Date.now }) {
   const roteador = express.Router();
   roteador.use(exigirAutenticacao, exigirPerfil('ADMIN_CLUBE', 'LEITOR'));
+  roteador.use(criarRotasParticipacoesCiclo({ obterConexao, agora }));
   const escrita = [exigirPerfil('ADMIN_CLUBE'), protegerCsrf];
   roteador.get('/',
     rejeitarCamposDesconhecidos(['q', 'situacao', 'sort', 'direction', 'page', 'pageSize'], { local: 'query' }),
