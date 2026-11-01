@@ -221,7 +221,7 @@ describe('Contratos HTTP com erros reais de PostgreSQL', { timeout: 20_000 }, ()
   });
 
   it('valores de busca são bind e ordenação maliciosa não chega ao SQL', async () => {
-    await emTransacao(async ({ transaction }) => {
+    await emTransacao(async ({ transaction, generos }) => {
       const ataque = "' OR 1=1; DROP TABLE generos; -- senha_reservada";
       const resposta = await fetch(`${endereco}/fixture/lista?termo=${encodeURIComponent(ataque)}`);
       assert.equal(resposta.status, 200);
@@ -229,7 +229,7 @@ describe('Contratos HTTP com erros reais de PostgreSQL', { timeout: 20_000 }, ()
       const ordenacao = await fetch(`${endereco}/fixture/lista?sort=${encodeURIComponent(ataque)}`);
       const corpo = await conferirErro(ordenacao, 422, 'VALIDATION_ERROR');
       assert.ok(!JSON.stringify(corpo).includes(ataque));
-      assert.equal(await conexao.models.Genero.count({ transaction }), 2);
+      assert.equal(await conexao.models.Genero.count({ where: { id: generos.map((genero) => genero.id) }, transaction }), 2);
     });
   });
 });

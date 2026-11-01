@@ -10,6 +10,7 @@ const banco = require('./database/conexao');
 const { atenderAutenticacao, identificarRequisicao } = require('./autenticacao/servico');
 const { criarRotasUsuarios } = require('./usuarios/rotas');
 const { criarRotasPerfil } = require('./perfil/rotas');
+const { criarRotasGeneros, criarRotasLivros } = require('./catalogo/rotas');
 
 const configuracao = carregarAmbiente();
 const app = express();
@@ -41,6 +42,8 @@ app.use('/api/usuarios', identificarRequisicao, criarRotasUsuarios({
 app.use('/api/me', identificarRequisicao, criarRotasPerfil({
   obterUsuario: () => banco.obterConexao().models.Usuario,
 }));
+app.use('/api/generos', identificarRequisicao, criarRotasGeneros({ obterConexao: banco.obterConexao }));
+app.use('/api/livros', identificarRequisicao, criarRotasLivros({ obterConexao: banco.obterConexao }));
 
 app.use(rotaNaoEncontrada);
 app.use(tratarErros);

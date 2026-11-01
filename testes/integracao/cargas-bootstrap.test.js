@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const bcrypt = require('bcrypt');
 const { after, before, describe, it } = require('node:test');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Transaction } = require('sequelize');
 const { validarBancoTeste } = require('../../configuracao/banco');
 const { validarDestinoTeste } = require('../../configuracao/operacoes-banco');
 const { criarConexao } = require('../../database/conexao');
@@ -41,7 +41,9 @@ describe('Referências e bootstrap no PostgreSQL de teste', { timeout: 30_000 },
 
   async function emTransacao(executar) {
     validarDestinoTeste(conexao);
-    const transaction = await conexao.transaction();
+    // Um snapshot estável distingue escritas do seeder das fixtures HTTP
+    // confirmadas por outras suítes que usam o mesmo banco isolado em paralelo.
+    const transaction = await conexao.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ });
     const proxy = conexaoNaTransacao(transaction);
     const queryInterface = Object.create(conexao.getQueryInterface());
     Object.defineProperty(queryInterface, 'sequelize', { value: proxy });
@@ -100,13 +102,15 @@ describe('Referências e bootstrap no PostgreSQL de teste', { timeout: 30_000 },
       const anteriores = await conexao.models.Genero.findByPk(preexistente.id, { transaction, raw: true });
       const tabelasDominio = ['Usuario', 'Livro', 'CicloLeitura', 'Encontro', 'ParticipacaoLeitura', 'InscricaoEncontro'];
       const contagensAntes = await contarModelos(tabelasDominio, transaction);
+      const totalGenerosAntes = await conexao.models.Genero.count({ transaction });
 
       await referencias.up(queryInterface);
       await referencias.up(queryInterface);
 
-      const generos = await conexao.models.Genero.findAll({ attributes: ['id', 'nome'], order: [['nome', 'ASC']], transaction });
+      const generos = await conexao.models.Genero.findAll({ where: { nome: nomesReferencia }, attributes: ['id', 'nome'], order: [['nome', 'ASC']], transaction });
       assert.equal(generos.length, nomesReferencia.length);
       assert.deepEqual(generos.map((genero) => genero.nome).sort(), [...nomesReferencia].sort());
+      assert.equal(await conexao.models.Genero.count({ transaction }) - totalGenerosAntes, nomesReferencia.length - 1);
       assert.deepEqual(await conexao.models.Genero.findByPk(preexistente.id, { transaction, raw: true }), anteriores);
       const proprietarios = await origem(transaction);
       assert.equal(proprietarios.length, nomesReferencia.length - 1);
@@ -118,12 +122,14 @@ describe('Referências e bootstrap no PostgreSQL de teste', { timeout: 30_000 },
   it('reversão remove somente os gêneros inseridos pelo seeder', async () => {
     await emTransacao(async ({ transaction, queryInterface }) => {
       const preexistente = await criarPreexistente(transaction);
+      const outro = await conexao.models.Genero.create({ nome: `Referência alheia ${process.pid}` }, { transaction });
       await referencias.up(queryInterface);
       await referencias.down(queryInterface);
       await referencias.down(queryInterface);
 
-      const restantes = await conexao.models.Genero.findAll({ attributes: ['id', 'nome'], transaction });
+      const restantes = await conexao.models.Genero.findAll({ where: { nome: nomesReferencia }, attributes: ['id', 'nome'], transaction });
       assert.deepEqual(restantes.map((genero) => genero.get()), [{ id: preexistente.id, nome: 'Aventura' }]);
+      assert.ok(await conexao.models.Genero.findByPk(outro.id, { transaction }));
       assert.deepEqual(await origem(transaction), []);
     });
   });
@@ -138,7 +144,7 @@ describe('Referências e bootstrap no PostgreSQL de teste', { timeout: 30_000 },
       const autoriaAntes = await origem(transaction);
 
       await assert.rejects(referencias.down(queryInterface), { name: 'SequelizeForeignKeyConstraintError' });
-      assert.equal(await conexao.models.Genero.count({ transaction }), nomesReferencia.length);
+      assert.equal(await conexao.models.Genero.count({ where: { nome: nomesReferencia }, transaction }), nomesReferencia.length);
       assert.deepEqual(await origem(transaction), autoriaAntes);
       assert.ok(await conexao.models.Livro.findByPk(livro.id, { transaction }));
     });
@@ -155,7 +161,7 @@ describe('Referências e bootstrap no PostgreSQL de teste', { timeout: 30_000 },
         if (anterior === undefined) delete process.env.NODE_ENV;
         else process.env.NODE_ENV = anterior;
       }
-      assert.equal(await conexao.models.Genero.count({ transaction }), nomesReferencia.length);
+      assert.equal(await conexao.models.Genero.count({ where: { nome: nomesReferencia }, transaction }), nomesReferencia.length);
       assert.equal((await origem(transaction)).length, nomesReferencia.length);
     });
   });
