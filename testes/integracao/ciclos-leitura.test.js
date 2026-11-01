@@ -6,6 +6,7 @@ const { QueryTypes } = require('sequelize');
 const { validarBancoTeste } = require('../../configuracao/banco');
 const { validarDestinoTeste } = require('../../configuracao/operacoes-banco');
 const { criarConexao } = require('../../database/conexao');
+const { reservarCiclosAtivos } = require('../apoio/coordenacao-ciclos');
 
 // O schema já deve estar migrado. Datas civis usam strings YYYY-MM-DD;
 // nenhuma fixture de ciclo converte essas datas para Date ou UTC.
@@ -14,15 +15,18 @@ let sequencia = 0;
 
 describe('Ciclos de leitura no PostgreSQL de teste', { timeout: 20_000 }, () => {
   let conexao;
+  let liberarCiclos;
 
   before(async () => {
+    liberarCiclos = await reservarCiclosAtivos();
     conexao = criarConexao();
     validarDestinoTeste(conexao);
     await conexao.authenticate();
   });
 
   after(async () => {
-    if (conexao) await conexao.close();
+    try { if (conexao) await conexao.close(); }
+    finally { if (liberarCiclos) await liberarCiclos(); }
   });
 
   async function emTransacao(executar) {
@@ -83,8 +87,8 @@ describe('Ciclos de leitura no PostgreSQL de teste', { timeout: 20_000 }, () => 
           await inserirCiclo(transaction, obra.id, { situacao });
         }
       }
-      const [quantidade] = await conexao.query('SELECT count(*)::integer AS total FROM ciclos_leitura', {
-        type: QueryTypes.SELECT, transaction,
+      const [quantidade] = await conexao.query('SELECT count(*)::integer AS total FROM ciclos_leitura WHERE livro_id = ANY($1::integer[])', {
+        type: QueryTypes.SELECT, transaction, bind: [obras.map((obra) => obra.id)],
       });
       assert.equal(quantidade.total, 8);
     });

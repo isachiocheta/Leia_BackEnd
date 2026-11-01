@@ -2,6 +2,7 @@
 
 const { body, param, query, matchedData, validationResult } = require('express-validator');
 const { ErroAplicacao, MENSAGENS_CAMPOS } = require('../utilitarios/erro-aplicacao');
+const { dataCivilReal } = require('../utilitarios/datas-civis');
 
 const seletores = Object.freeze({ body, params: param, query });
 const camposProibidos = new Set(['__proto__', 'prototype', 'constructor']);
@@ -45,15 +46,6 @@ function validarIdPositivo(campo = 'id', local = 'params') {
     return typeof valor === 'string' && /^[1-9]\d*$/.test(valor)
       && Number.isSafeInteger(Number(valor)) && Number(valor) <= 2147483647;
   }).withMessage('INVALID_ID').bail().toInt();
-}
-
-function dataCivilReal(valor) {
-  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
-  const [ano, mes, dia] = valor.split('-').map(Number);
-  if (ano < 1 || mes < 1 || mes > 12 || dia < 1) return false;
-  const bissexto = ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0);
-  const diasPorMes = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return dia <= diasPorMes[mes - 1];
 }
 
 function validarDataCivil(campo, { opcional = false, local = 'body' } = {}) {
