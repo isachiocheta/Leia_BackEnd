@@ -56,8 +56,8 @@ function definirEncontro(sequelize) {
     createdAt: 'criadoEm',
     updatedAt: 'atualizadoEm',
     underscored: true,
-    // A regra de início dentro do período do ciclo consulta outra tabela e será
-    // validada no serviço; não é uma validação local ou CHECK entre tabelas.
+    // Início dentro do período e transições são validados no serviço, sob locks
+    // dos livros/ciclos/encontro; não cabe CHECK entre tabelas neste model.
     indexes: [
       { name: 'encontros_ciclo_inicio_indice', fields: ['ciclo_id', 'inicio_em'] },
       { name: 'encontros_inicio_indice', fields: ['inicio_em'] },
