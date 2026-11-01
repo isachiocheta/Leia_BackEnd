@@ -5,7 +5,7 @@ const { bloquearCiclo } = require('../database/bloqueio-ciclo');
 const { ErroAplicacao, MENSAGENS_CAMPOS } = require('../utilitarios/erro-aplicacao');
 const { exigirRecurso, comContextoPersistencia } = require('../utilitarios/persistencia');
 const { lerOpcoesListagem } = require('../utilitarios/listagem');
-const { dataEmSaoPaulo } = require('../utilitarios/datas-civis');
+const { conferirCicloLiberado, conferirLeitor } = require('./regras-leitura');
 
 const CAMPOS_PROGRESSO = `p.id, p.ciclo_id AS "cicloId", p.pagina_atual AS "paginaAtual",
   ROUND(p.pagina_atual::numeric * 100 / l.total_paginas, 2)::double precision AS percentual,
@@ -15,24 +15,6 @@ const VINCULOS = `FROM participacoes_leitura p JOIN ciclos_leitura c ON c.id = p
 const CONSULTA_PROPRIA = `SELECT ${CAMPOS_PROGRESSO},
   json_build_object('id', c.id, 'nome', c.nome, 'situacao', c.situacao, 'dataInicio', c.data_inicio::text, 'dataFim', c.data_fim::text) AS ciclo,
   json_build_object('id', l.id, 'titulo', l.titulo, 'totalPaginas', l.total_paginas) AS livro ${VINCULOS}`;
-
-function conferirCicloLiberado(ciclo, instante) {
-  const hoje = dataEmSaoPaulo(instante);
-  if (ciclo.situacao !== 'EM_ANDAMENTO' || hoje < ciclo.dataInicio || hoje > ciclo.dataFim) throw new ErroAplicacao('CONFLICT');
-}
-
-async function conferirLeitor(identidade, conexao, transaction) {
-  if (!Number.isInteger(identidade?.id) || identidade.id < 1 || !Number.isInteger(identidade?.sessionVersion) || identidade.sessionVersion < 0) {
-    throw new ErroAplicacao('UNAUTHORIZED');
-  }
-  // Livros -> ciclo -> usuário -> participação. SHARE mantém a situação e a
-  // versão válidas até o commit, inclusive diante de desativação/troca de senha.
-  const usuario = await conexao.models.Usuario.findByPk(identidade.id, {
-    attributes: ['id', 'perfil', 'situacao', 'sessionVersion'], transaction, lock: transaction.LOCK.SHARE,
-  });
-  if (!usuario || usuario.situacao !== 'ATIVO' || usuario.sessionVersion !== identidade.sessionVersion) throw new ErroAplicacao('UNAUTHORIZED');
-  if (usuario.perfil !== 'LEITOR') throw new ErroAplicacao('FORBIDDEN');
-}
 
 async function consultarMinhaParticipacao(cicloId, usuarioId, conexao, transaction) {
   return comContextoPersistencia('buscar', async () => {

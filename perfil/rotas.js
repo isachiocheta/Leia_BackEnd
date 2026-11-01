@@ -8,14 +8,16 @@ const { alterarNome, alterarSenha } = require('../servicos/perfil');
 const { senhaValida } = require('../utilitarios/senha');
 const { responderDetalhe } = require('../utilitarios/respostas');
 const { criarRotasMinhasParticipacoes } = require('../participacoes/rotas');
+const { criarRotasMinhasInscricoes } = require('../inscricoes/rotas');
 const {
   rejeitarCamposDesconhecidos, rejeitarPatchVazio, validarRequisicao, selecionarCamposPermitidos,
 } = require('../validacao/requisicao');
 
-function criarRotasPerfil({ obterUsuario, obterConexao = () => obterUsuario().sequelize }) {
+function criarRotasPerfil({ obterUsuario, obterConexao = () => obterUsuario().sequelize, agora = Date.now }) {
   const roteador = express.Router();
   roteador.use(...protegerRota('ADMIN_CLUBE', 'LEITOR'));
   roteador.use('/participacoes', criarRotasMinhasParticipacoes({ obterConexao }));
+  roteador.use('/inscricoes', criarRotasMinhasInscricoes({ obterConexao, agora }));
   roteador.patch('/',
     rejeitarCamposDesconhecidos(['nome']),
     rejeitarPatchVazio(['nome']),

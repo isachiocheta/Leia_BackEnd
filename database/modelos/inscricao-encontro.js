@@ -26,7 +26,8 @@ function definirInscricaoEncontro(sequelize) {
     underscored: true,
     indexes: [{ unique: true, name: 'inscricoes_encontro_usuario_encontro_unico', fields: ['usuario_id', 'encontro_id'] }],
     // Inscrição é intenção de comparecer, não presença. Usuário ativo e vínculo
-    // com o mesmo ciclo serão verificados pelos serviços, sem campos derivados.
+    // com o mesmo ciclo são verificados no serviço, sob locks dos pais. Não há
+    // campos de presença, lotação ou contadores armazenados.
   });
 }
 

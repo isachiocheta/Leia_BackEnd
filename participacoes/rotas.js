@@ -3,24 +3,15 @@
 const express = require('express');
 const { body } = require('express-validator');
 const { protegerRota } = require('../autenticacao/rotas');
-const { ErroAplicacao } = require('../utilitarios/erro-aplicacao');
+const { validarCorpoVazio } = require('../validacao/corpo-vazio');
 const { responderDetalhe, responderLista } = require('../utilitarios/respostas');
 const { validarIdPositivo, validarRequisicao, rejeitarCamposDesconhecidos, rejeitarPatchVazio, selecionarCamposPermitidos } = require('../validacao/requisicao');
 const servico = require('../servicos/participacoes');
 
-const rejeitarCorpoComCampos = rejeitarCamposDesconhecidos([]);
-function corpoAdesao(requisicao, resposta, proximo) {
-  if (requisicao.body === undefined) {
-    if (Number(requisicao.get('Content-Length')) > 0 || requisicao.get('Transfer-Encoding')) return proximo(new ErroAplicacao('BAD_REQUEST'));
-    return proximo();
-  }
-  return rejeitarCorpoComCampos(requisicao, resposta, proximo);
-}
-
 function criarRotasParticipacoesCiclo({ obterConexao, agora = Date.now }) {
   const roteador = express.Router();
   const semConsulta = rejeitarCamposDesconhecidos([], { local: 'query' });
-  roteador.post('/:id/participacoes', ...protegerRota('LEITOR'), validarIdPositivo(), semConsulta, corpoAdesao, validarRequisicao,
+  roteador.post('/:id/participacoes', ...protegerRota('LEITOR'), validarIdPositivo(), semConsulta, validarCorpoVazio, validarRequisicao,
     async (requisicao, resposta) => {
       const { id } = selecionarCamposPermitidos(requisicao, ['id'], { local: 'params' });
       responderDetalhe(resposta, await servico.aderirAoCiclo(id, requisicao.user, obterConexao(), { agora }), 201);

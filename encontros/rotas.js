@@ -8,6 +8,7 @@ const { instanteIsoComOffset } = require('../utilitarios/instantes');
 const { responderDetalhe, responderLista, responderSemConteudo } = require('../utilitarios/respostas');
 const { validarIdPositivo, validarRequisicao, rejeitarCamposDesconhecidos, rejeitarPatchVazio, selecionarCamposPermitidos } = require('../validacao/requisicao');
 const servico = require('../servicos/encontros');
+const { criarRotasInscricoesEncontro } = require('../inscricoes/rotas');
 
 function regrasEncontro(parcial = false) {
   const regras = [
@@ -21,6 +22,7 @@ function regrasEncontro(parcial = false) {
 function criarRotasEncontros({ obterConexao, agora = Date.now }) {
   const roteador = express.Router();
   roteador.use(exigirAutenticacao, exigirPerfil('ADMIN_CLUBE', 'LEITOR'));
+  roteador.use(criarRotasInscricoesEncontro({ obterConexao, agora }));
   const escrita = [exigirPerfil('ADMIN_CLUBE'), protegerCsrf];
   roteador.get('/', rejeitarCamposDesconhecidos(['q', 'cicloId', 'situacao', 'sort', 'direction', 'page', 'pageSize'], { local: 'query' }),
     query('q').optional().isString().bail().trim().isLength({ min: 1, max: 120 }),
