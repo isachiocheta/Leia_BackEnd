@@ -20,4 +20,16 @@ async function leitoresSemParticipacao(cicloId, conexao, opcoes = {}) {
   return executarConsulta('leitoresSemParticipacao', conexao, { ciclo: cicloId, ...paginar(opcoes) }, opcoes);
 }
 
-module.exports = { resumoCiclo, livrosMinimoCiclos, leitoresSemParticipacao };
+async function contarLivrosMinimoCiclos(minimo, conexao, opcoes = {}) {
+  validarId(minimo);
+  const [linha] = await executarConsulta('contarLivrosMinimoCiclos', conexao, { minimo }, opcoes);
+  return linha.total;
+}
+
+async function contarLeitoresSemParticipacao(cicloId, conexao, opcoes = {}) {
+  validarId(cicloId);
+  const [linha] = await executarConsulta('contarLeitoresSemParticipacao', conexao, { ciclo: cicloId }, opcoes);
+  return linha.total;
+}
+
+module.exports = { resumoCiclo, livrosMinimoCiclos, leitoresSemParticipacao, contarLivrosMinimoCiclos, contarLeitoresSemParticipacao };

@@ -13,6 +13,7 @@ const { criarRotasPerfil } = require('./perfil/rotas');
 const { criarRotasGeneros, criarRotasLivros } = require('./catalogo/rotas');
 const { criarRotasCiclos } = require('./ciclos/rotas');
 const { criarRotasEncontros } = require('./encontros/rotas');
+const { criarRotasDashboard } = require('./dashboard/rotas');
 
 const configuracao = carregarAmbiente();
 const app = express();
@@ -48,6 +49,7 @@ app.use('/api/generos', identificarRequisicao, criarRotasGeneros({ obterConexao:
 app.use('/api/livros', identificarRequisicao, criarRotasLivros({ obterConexao: banco.obterConexao }));
 app.use('/api/ciclos', identificarRequisicao, criarRotasCiclos({ obterConexao: banco.obterConexao }));
 app.use('/api/encontros', identificarRequisicao, criarRotasEncontros({ obterConexao: banco.obterConexao }));
+app.use('/api/dashboard', identificarRequisicao, criarRotasDashboard({ obterConexao: banco.obterConexao }));
 
 app.use(rotaNaoEncontrada);
 app.use(tratarErros);
