@@ -34,11 +34,13 @@ test('ausência própria no cancelamento é 404 mesmo em encontro finalizado e c
 
 test('filtro de futuros usa parâmetro temporal e a identidade, sem excluir histórico por situação', async () => {
   const consultas = [];
-  const conexao = { async query(sql, opcoes) { consultas.push({ sql, opcoes }); return sql.startsWith('SELECT count') ? [{ total: '0' }] : []; } };
+  const conexao = { async query(sql, opcoes) { consultas.push({ sql, opcoes }); return /SELECT count\(\*\) AS total/i.test(sql) ? [{ total: '0' }] : []; } };
   const agora = Date.parse('2026-11-01T15:00:00Z');
   const resultado = await listarMinhasInscricoes(7, { futuros: 'true' }, conexao, { agora: () => agora });
   assert.equal(resultado.meta.pageSize, 12);
-  assert.match(consultas[0].sql, /i.usuario_id = \$usuario AND e.inicio_em > \$agora/);
+  assert.match(consultas[0].sql, /i.usuario_id = \$usuario/);
+  assert.match(consultas[0].sql, /e.inicio_em > \$agora/);
+  assert.equal(consultas[0].opcoes.bind.somenteFuturos, true);
   assert.equal(consultas[0].opcoes.bind.usuario, 7); assert.equal(consultas[0].opcoes.bind.agora.getTime(), agora);
   assert.doesNotMatch(consultas[0].sql, /e.situacao =/);
   await assert.rejects(listarMinhasInscricoes(7, { futuros: '1' }, conexao), (erro) => erro.status === 422);

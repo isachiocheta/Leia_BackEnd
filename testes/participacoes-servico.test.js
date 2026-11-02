@@ -53,7 +53,7 @@ test('situação, perfil e versão são reconferidos sob lock; ciclo vencido e p
 
 test('histórico usa identidade vinculada, divisão numeric e conclusão exata independente do arredondamento', async () => {
   const consultas = [];
-  const conexao = { async query(sql, opcoes) { consultas.push({ sql, opcoes }); return sql.startsWith('SELECT count') ? [{ total: '0' }] : []; } };
+  const conexao = { async query(sql, opcoes) { consultas.push({ sql, opcoes }); return /SELECT count\(\*\) AS total/i.test(sql) ? [{ total: '0' }] : []; } };
   const resultado = await listarMinhasParticipacoes(7, {}, conexao);
   assert.equal(resultado.meta.pageSize, 12);
   assert.match(consultas[0].sql, /pagina_atual::numeric \* 100 \/ l.total_paginas/);

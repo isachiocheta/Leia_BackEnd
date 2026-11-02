@@ -1,28 +1,23 @@
 'use strict';
 
-const { QueryTypes, Transaction } = require('sequelize');
+const { Transaction } = require('sequelize');
 const { bloquearCiclo } = require('../database/bloqueio-ciclo');
 const { ErroAplicacao, MENSAGENS_CAMPOS } = require('../utilitarios/erro-aplicacao');
 const { exigirRecurso, comContextoPersistencia } = require('../utilitarios/persistencia');
 const { lerOpcoesListagem } = require('../utilitarios/listagem');
 const { conferirCicloLiberado, conferirLeitor } = require('./regras-leitura');
 
-const CAMPOS_PROGRESSO = `p.id, p.ciclo_id AS "cicloId", p.pagina_atual AS "paginaAtual",
-  ROUND(p.pagina_atual::numeric * 100 / l.total_paginas, 2)::double precision AS percentual,
-  (p.pagina_atual = l.total_paginas) AS concluida, p.concluida_em AS "concluidaEm",
-  p.criado_em AS "criadoEm", p.atualizado_em AS "atualizadoEm"`;
-const VINCULOS = `FROM participacoes_leitura p JOIN ciclos_leitura c ON c.id = p.ciclo_id JOIN livros l ON l.id = c.livro_id`;
-const CONSULTA_PROPRIA = `SELECT ${CAMPOS_PROGRESSO},
-  json_build_object('id', c.id, 'nome', c.nome, 'situacao', c.situacao, 'dataInicio', c.data_inicio::text, 'dataFim', c.data_fim::text) AS ciclo,
-  json_build_object('id', l.id, 'titulo', l.titulo, 'totalPaginas', l.total_paginas) AS livro ${VINCULOS}`;
+const repositorio = require('../repositorios/participacoes');
+
+function participacaoPublica(linha) {
+  const { genero, ...dados } = linha;
+  return dados;
+}
 
 async function consultarMinhaParticipacao(cicloId, usuarioId, conexao, transaction) {
-  return comContextoPersistencia('buscar', async () => {
-    const linhas = await conexao.query(`${CONSULTA_PROPRIA} WHERE p.ciclo_id = $ciclo AND p.usuario_id = $usuario`, {
-      type: QueryTypes.SELECT, bind: { ciclo: cicloId, usuario: usuarioId }, transaction,
-    });
-    return exigirRecurso(linhas[0]);
-  });
+  return comContextoPersistencia('buscar', async () => participacaoPublica(exigirRecurso(
+    await repositorio.participacaoPropria(cicloId, usuarioId, conexao, transaction),
+  )));
 }
 
 async function aderirAoCiclo(cicloId, identidade, conexao, { agora = Date.now } = {}) {
@@ -72,14 +67,8 @@ async function atualizarProgresso(cicloId, identidade, paginaAtual, conexao, { a
 async function listarMinhasParticipacoes(usuarioId, consulta, conexao) {
   const { page, pageSize, limit, offset } = lerOpcoesListagem(consulta, { id: 'id' });
   return comContextoPersistencia('buscar', async () => {
-    const [data, totais] = await Promise.all([
-      conexao.query(`${CONSULTA_PROPRIA} WHERE p.usuario_id = $usuario ORDER BY p.id DESC LIMIT $limite OFFSET $deslocamento`, {
-        type: QueryTypes.SELECT, bind: { usuario: usuarioId, limite: limit, deslocamento: offset },
-      }),
-      conexao.query('SELECT count(*) AS total FROM participacoes_leitura WHERE usuario_id = $usuario', { type: QueryTypes.SELECT, bind: { usuario: usuarioId } }),
-    ]);
-    // O histórico não depende do estado nem do prazo atual do ciclo.
-    return { data, meta: { page, pageSize, total: Number(totais[0].total) } };
+    const resultado = await repositorio.historicoLeituras(usuarioId, conexao, { limit, offset });
+    return { data: resultado.data.map(participacaoPublica), meta: { page, pageSize, total: resultado.total } };
   });
 }
 
@@ -87,15 +76,9 @@ async function listarParticipantes(cicloId, consulta, conexao) {
   const { page, pageSize, limit, offset } = lerOpcoesListagem(consulta, { id: 'id' });
   return comContextoPersistencia('buscar', async () => {
     exigirRecurso(await conexao.models.CicloLeitura.findByPk(cicloId, { attributes: ['id'] }));
-    const [data, totais] = await Promise.all([
-      conexao.query(`SELECT ${CAMPOS_PROGRESSO}, json_build_object('id', u.id, 'nome', u.nome) AS usuario
-        ${VINCULOS} JOIN usuarios u ON u.id = p.usuario_id WHERE p.ciclo_id = $ciclo
-        ORDER BY p.id ASC LIMIT $limite OFFSET $deslocamento`, {
-        type: QueryTypes.SELECT, bind: { ciclo: cicloId, limite: limit, deslocamento: offset },
-      }),
-      conexao.query('SELECT count(*) AS total FROM participacoes_leitura WHERE ciclo_id = $ciclo', { type: QueryTypes.SELECT, bind: { ciclo: cicloId } }),
-    ]);
-    return { data, meta: { page, pageSize, total: Number(totais[0].total) } };
+    const resultado = await repositorio.participantesCiclo(cicloId, conexao, { limit, offset });
+    const data = resultado.data.map(({ livro, ...dados }) => dados);
+    return { data, meta: { page, pageSize, total: resultado.total } };
   });
 }
 

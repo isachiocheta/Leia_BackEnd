@@ -8,19 +8,7 @@ const { comContextoPersistencia, exigirRecurso } = require('../utilitarios/persi
 const { lerOpcoesListagem } = require('../utilitarios/listagem');
 const { dataEmSaoPaulo } = require('../utilitarios/datas-civis');
 
-const CONSULTA = `SELECT i.id, i.encontro_id AS "encontroId", i.criado_em AS "criadoEm", i.atualizado_em AS "atualizadoEm",
-  e.inicio_em AS "inicioEm", json_build_object('id', e.id, 'titulo', e.titulo, 'local', e.local, 'situacao', e.situacao) AS encontro,
-  json_build_object('id', c.id, 'nome', c.nome, 'situacao', c.situacao, 'dataInicio', c.data_inicio::text, 'dataFim', c.data_fim::text) AS ciclo,
-  json_build_object('id', l.id, 'titulo', l.titulo, 'autor', l.autor) AS livro
-  FROM inscricoes_encontro i JOIN encontros e ON e.id = i.encontro_id
-  JOIN ciclos_leitura c ON c.id = e.ciclo_id JOIN livros l ON l.id = c.livro_id`;
-
-function inscricaoPublica(linha) {
-  const { inicioEm, ...dados } = linha;
-  // Preserva o Date do driver para serialização ISO UTC uniforme, inclusive
-  // dentro da associação, sem depender do formato JSON de timestamp do PG.
-  return { ...dados, encontro: { ...dados.encontro, inicioEm } };
-}
+const repositorio = require('../repositorios/inscricoes');
 
 async function conferirDisponibilidade(ciclo, encontro, usuarioId, instante, conexao, transaction) {
   conferirCicloLiberado(ciclo, instante);
@@ -35,10 +23,7 @@ async function conferirDisponibilidade(ciclo, encontro, usuarioId, instante, con
 }
 
 async function consultarInscricao(encontroId, usuarioId, conexao, transaction) {
-  const linhas = await conexao.query(`${CONSULTA} WHERE i.encontro_id = $encontro AND i.usuario_id = $usuario`, {
-    type: QueryTypes.SELECT, bind: { encontro: encontroId, usuario: usuarioId }, transaction,
-  });
-  return inscricaoPublica(exigirRecurso(linhas[0]));
+  return exigirRecurso(await repositorio.inscricaoPropria(encontroId, usuarioId, conexao, transaction));
 }
 
 async function inscreverNoEncontro(encontroId, identidade, conexao, { agora = Date.now } = {}) {
@@ -74,21 +59,9 @@ async function listarMinhasInscricoes(usuarioId, consulta, conexao, { agora = Da
   const { futuros, ...paginacao } = consulta;
   if (futuros !== undefined && !['true', 'false'].includes(futuros)) throw new ErroAplicacao('VALIDATION_ERROR');
   const { page, pageSize, limit, offset } = lerOpcoesListagem(paginacao, { id: 'id' });
-  const bind = { usuario: usuarioId };
-  // false/ausência preservam todo o histórico. true é um filtro temporal; um
-  // evento futuro cancelado continua aparecendo com sua situação explícita.
-  const filtro = futuros === 'true' ? ' AND e.inicio_em > $agora' : '';
-  if (futuros === 'true') bind.agora = new Date(agora());
   return comContextoPersistencia('buscar', async () => {
-    const [linhas, totais] = await Promise.all([
-      conexao.query(`${CONSULTA} WHERE i.usuario_id = $usuario${filtro} ORDER BY e.inicio_em ASC, i.id ASC LIMIT $limite OFFSET $deslocamento`, {
-        type: QueryTypes.SELECT, bind: { ...bind, limite: limit, deslocamento: offset },
-      }),
-      conexao.query(`SELECT count(*) AS total FROM inscricoes_encontro i JOIN encontros e ON e.id = i.encontro_id WHERE i.usuario_id = $usuario${filtro}`, {
-        type: QueryTypes.SELECT, bind,
-      }),
-    ]);
-    return { data: linhas.map(inscricaoPublica), meta: { page, pageSize, total: Number(totais[0].total) } };
+    const resultado = await repositorio.agendaLeitor(usuarioId, conexao, { futuros: futuros === 'true', agora: agora(), limit, offset });
+    return { data: resultado.data, meta: { page, pageSize, total: resultado.total } };
   });
 }
 
