@@ -108,7 +108,7 @@ describe('Arquivos SQL executados pelos repositórios em PostgreSQL isolado', { 
       const paginas = { limite: 12, deslocamento: 0 };
       const consultas = {
         participantesCiclo: { ciclo: 5000, ...paginas }, resumoCiclo: { ciclo: 5000 },
-        agendaLeitor: { usuario: 4, encontro: null, somenteFuturos: true, agora: new Date('2026-11-01T15:00:00Z'), ...paginas },
+        agendaLeitor: { usuario: 4, encontro: null, somenteFuturos: true, somenteAgendados: false, agora: new Date('2026-11-01T15:00:00Z'), ...paginas },
         livrosMinimoCiclos: { minimo: 4, ...paginas }, leitoresSemParticipacao: { ciclo: 5000, ...paginas },
         historicoLeituras: { usuario: 1, ciclo: null, ...paginas },
       };

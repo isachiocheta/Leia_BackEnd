@@ -1,6 +1,7 @@
 -- Requisito 3: agenda futura relacionando inscrição, encontro, ciclo e livro.
 -- Bind: $usuario, $encontro (id ou NULL), $somenteFuturos (boolean), $agora
 -- (instante), $limite (1..50), $deslocamento (>=0).
+-- $somenteAgendados (boolean): restringe o dashboard a AGENDADO; false preserva o histórico.
 -- Finalidade: agenda pessoal. false mantém o histórico do endpoint existente;
 -- true filtra início futuro, preservando a situação explícita, sem inferir presença.
 SELECT i.id, i.encontro_id AS "encontroId", i.criado_em AS "criadoEm", i.atualizado_em AS "atualizadoEm",
@@ -15,4 +16,5 @@ JOIN ciclos_leitura c ON c.id = e.ciclo_id
 JOIN livros l ON l.id = c.livro_id
 WHERE i.usuario_id = $usuario AND ($encontro::integer IS NULL OR i.encontro_id = $encontro)
   AND (NOT $somenteFuturos::boolean OR e.inicio_em > $agora::timestamptz)
+  AND (NOT $somenteAgendados::boolean OR e.situacao = 'AGENDADO')
 ORDER BY e.inicio_em ASC, i.id ASC LIMIT $limite OFFSET $deslocamento;

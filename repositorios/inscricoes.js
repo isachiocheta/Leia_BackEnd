@@ -7,10 +7,10 @@ function inscricaoPublica(linha) {
   return { ...dados, encontro: { ...dados.encontro, inicioEm } };
 }
 
-function filtros(usuarioId, { futuros = true, agora = Date.now(), encontroId = null } = {}) {
+function filtros(usuarioId, { futuros = true, somenteAgendados = false, agora = Date.now(), encontroId = null } = {}) {
   validarId(usuarioId); if (encontroId !== null) validarId(encontroId);
-  if (typeof futuros !== 'boolean' || !Number.isFinite(new Date(agora).getTime())) throw new TypeError('Filtro temporal de agenda inválido.');
-  return { usuario: usuarioId, encontro: encontroId, somenteFuturos: futuros, agora: new Date(agora) };
+  if (typeof futuros !== 'boolean' || typeof somenteAgendados !== 'boolean' || !Number.isFinite(new Date(agora).getTime())) throw new TypeError('Filtro de agenda inválido.');
+  return { usuario: usuarioId, encontro: encontroId, somenteFuturos: futuros, somenteAgendados, agora: new Date(agora) };
 }
 
 async function agendaLeitor(usuarioId, conexao, opcoes = {}) {

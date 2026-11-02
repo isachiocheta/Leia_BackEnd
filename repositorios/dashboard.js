@@ -1,6 +1,6 @@
 'use strict';
 
-const { executarConsulta } = require('./consultas');
+const { executarConsulta, validarId } = require('./consultas');
 
 async function consultarTotais(conexao, instante, transaction) {
   const [totais] = await executarConsulta('totaisDashboard', conexao, { agora: instante }, { transaction });
@@ -16,4 +16,10 @@ function consultarCicloAtual(conexao, transaction) {
   });
 }
 
-module.exports = { consultarTotais, consultarCicloAtual };
+async function consultarTotaisLeitor(usuarioId, conexao, transaction) {
+  validarId(usuarioId);
+  const [totais] = await executarConsulta('totaisLeitor', conexao, { usuario: usuarioId }, { transaction });
+  return totais;
+}
+
+module.exports = { consultarTotais, consultarCicloAtual, consultarTotaisLeitor };

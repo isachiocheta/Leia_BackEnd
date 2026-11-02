@@ -42,6 +42,6 @@ test('filtro de futuros usa parâmetro temporal e a identidade, sem excluir hist
   assert.match(consultas[0].sql, /e.inicio_em > \$agora/);
   assert.equal(consultas[0].opcoes.bind.somenteFuturos, true);
   assert.equal(consultas[0].opcoes.bind.usuario, 7); assert.equal(consultas[0].opcoes.bind.agora.getTime(), agora);
-  assert.doesNotMatch(consultas[0].sql, /e.situacao =/);
+  assert.equal(consultas[0].opcoes.bind.somenteAgendados, false);
   await assert.rejects(listarMinhasInscricoes(7, { futuros: '1' }, conexao), (erro) => erro.status === 422);
 });
