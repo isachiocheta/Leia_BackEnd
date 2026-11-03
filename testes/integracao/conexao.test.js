@@ -19,6 +19,9 @@ const configuracao = validarBancoTeste(process.env);
 const aplicacao = require('../../app');
 
 async function listarTabelas(cliente) {
+  // As suítes paralelas criam/removem estes schemas exclusivos. Seu DDL não
+  // pertence a verificarConexao/ready. Mantém public e qualquer outro schema
+  // observado, sem atribuir ao endpoint as tabelas das fixtures concorrentes.
   const resultado = await cliente.query(`
     SELECT n.nspname AS esquema, c.relname AS tabela
       FROM pg_catalog.pg_class c
@@ -26,6 +29,7 @@ async function listarTabelas(cliente) {
      WHERE c.relkind IN ('r', 'p')
        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
        AND n.nspname NOT LIKE 'pg_toast%'
+       AND n.nspname !~ '^leia_(dashboard|transversal)_[0-9]+_[0-9]+$'
      ORDER BY n.nspname, c.relname
   `);
   return resultado.rows;
