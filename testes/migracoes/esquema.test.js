@@ -21,10 +21,11 @@ const migracaoEncontros = '20261030040000-completar-encontros.js';
 const migracaoParticipacoes = '20261030050000-completar-participacoes-leitura.js';
 const migracaoInscricoes = '20261030051000-ajustar-inscricoes-encontro.js';
 const migracaoReferencias = '20261030060000-criar-controle-referencias.js';
+const migracaoDemonstracao = '20261103000000-criar-controle-demonstracao.js';
 const migracoesConhecidas = [
   migracaoAnterior, migracaoUsuarios, migracaoSessoes, migracaoGeneros,
   migracaoLivros, migracaoCiclos, migracaoEncontros, migracaoParticipacoes, migracaoInscricoes,
-  migracaoReferencias,
+  migracaoReferencias, migracaoDemonstracao,
 ];
 let conexao;
 
@@ -143,6 +144,11 @@ async function conferirSchemaAtual(migracoesEsperadas = migracoesConhecidas) {
     assert.equal(autoria.genero_id.primaryKey, true);
     assert.equal(autoria.semeador.primaryKey, true);
   }
+  if (migracoesEsperadas.includes(migracaoDemonstracao)) {
+    const controle = await conexao.getQueryInterface().describeTable('cargas_demonstracao');
+    assert.deepEqual(Object.keys(controle).sort(), ['chave', 'criado_em', 'data_base', 'manifesto']);
+    assert.equal(controle.chave.primaryKey, true); assert.equal(controle.manifesto.type, 'JSONB');
+  }
   assert.deepEqual(await migracoesAplicadas(), migracoesEsperadas);
 }
 
@@ -157,7 +163,7 @@ before(async () => {
   const conhecidas = new Set([
     'usuarios', 'generos', 'livros', 'ciclos_leitura', 'encontros',
     'participacoes_leitura', 'inscricoes_encontro', 'sessoes', 'sequelize_meta',
-    'sequelize_seeds', 'generos_semeados',
+    'sequelize_seeds', 'generos_semeados', 'cargas_demonstracao',
   ]);
   assert.ok(tabelas.every((tabela) => conhecidas.has(tabela)), 'Use um banco de teste exclusivo para este ciclo.');
 
@@ -405,6 +411,9 @@ test('migrations executam up, down em ordem inversa e up sem editar as anteriore
 
   executarCli('db:migrate');
   await conferirSchemaAtual();
+  executarCli('db:migrate:undo');
+  assert.ok(!(await conexao.getQueryInterface().showAllTables()).includes('cargas_demonstracao'));
+  assert.deepEqual(await migracoesAplicadas(), migracoesConhecidas.slice(0, 10));
   executarCli('db:migrate:undo');
   const tabelasAposControle = await conexao.getQueryInterface().showAllTables();
   assert.ok(!tabelasAposControle.includes('sequelize_seeds'));

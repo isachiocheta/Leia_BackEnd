@@ -13,6 +13,7 @@ const migracoes = [
   ['participações de leitura', require('../database/migracoes/20261030050000-completar-participacoes-leitura')],
   ['inscrições em encontros', require('../database/migracoes/20261030051000-ajustar-inscricoes-encontro')],
   ['controle de referências', require('../database/migracoes/20261030060000-criar-controle-referencias')],
+  ['controle de demonstração', require('../database/migracoes/20261103000000-criar-controle-demonstracao')],
 ];
 
 const ambienteSeguro = {

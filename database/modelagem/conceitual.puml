@@ -64,6 +64,13 @@ entity "Inscrição em encontro" as inscricao {
 }
 
 package "Metadados técnicos de carga" {
+  entity "cargas_demonstracao" as manifesto_demo <<técnica>> {
+    * chave {PK, varchar(60)}
+    * data-base {DATE}
+    * manifesto {JSONB: versão e IDs}
+    * criado em {instante com fuso}
+  }
+
   entity "sequelize_seeds" as historico_seeds <<técnica>> {
     * nome do arquivo {PK}
   }
@@ -164,6 +171,11 @@ note as normalizacao
 end note
 
 note as infraestrutura
+  cargas_demonstracao é controle técnico opcional: chave PK varchar(60),
+  data_base DATE, manifesto JSONB (versão e IDs) e criado_em com fuso,
+  todos obrigatórios. Não guarda senhas, hash, progresso ou cópias de datas.
+  Não pertence ao domínio e não possui FKs; reexecução recusa referências
+  removidas ou conflitantes sem restaurá-las. Referência básica não cria linha.
   criadoEm e atualizadoEm são atributos técnicos de auditoria.
   sessionVersion é uma versão técnica de credenciais/sessões:
   inteiro obrigatório, com padrão zero e valor maior ou igual a zero.

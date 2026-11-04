@@ -21,7 +21,9 @@
     "db:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:migrate:undo",
     "db:referencias": "node --env-file-if-exists=.env database/executar-cli.js db:seed:all",
     "db:referencias:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:seed:undo --seed 20261030061000-carregar-generos-referencia.js",
-    "db:admin": "node --env-file-if-exists=.env database/bootstrap-administrativo.js"
+    "db:admin": "node --env-file-if-exists=.env database/bootstrap-administrativo.js",
+    "db:demo": "node --env-file-if-exists=.env database/carregar-demonstracao.js",
+    "db:exportar-sql": "node --env-file-if-exists=.env database/exportar-sql.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

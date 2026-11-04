@@ -13,6 +13,17 @@ Project leia_mais {
   Note: 'Domínio de um clube do livro escolar; tabelas técnicas separadas ao final.'
 }
 
+// Controle técnico da carga opcional; não é entidade do clube. O manifesto
+// guarda somente versão e mapas de IDs, sem senha/hash, progresso ou datas das
+// entidades. Não possui FKs para o domínio: ausências impedem reexecução, sem
+// apagar/restaurar registros por cascata. Sem linha quando só há referência.
+Table cargas_demonstracao {
+  chave varchar(60) [pk, not null]
+  data_base date [not null]
+  manifesto jsonb [not null]
+  criado_em timestamptz [not null]
+}
+
 Table usuarios {
   id integer [pk, increment, not null]
   nome varchar(100) [not null, note: 'Não pode ser vazio ou conter somente espaços em branco.']
@@ -246,6 +257,7 @@ TableGroup dominio {
 }
 
 TableGroup infraestrutura {
+  cargas_demonstracao
   sequelize_meta
   sequelize_seeds
   generos_semeados
