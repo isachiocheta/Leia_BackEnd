@@ -1,0 +1,3024 @@
+# Fonte contratual das rotas implementadas; validar com npm run verificar:contrato.
+openapi: 3.0.3
+info:
+  title: Leia+ — contrato do backend
+  version: 1.0.0
+  description: "Um único clube escolar. Contrato das 38 operações explícitas; GET também atende HEAD
+    sem corpo e CORS atende preflight OPTIONS com 204. Perfis ADMIN_CLUBE e LEITOR exigem conta
+    ATIVO. Cookie leia.sid: HttpOnly, SameSite=Lax, Secure em HTTPS (HTTP local explícito);
+    expiração absoluta de 30 minutos conferida no servidor, sem renovação por polling. Revogação por
+    sessionVersion (zero válido), senha e desativação. Obter GET /api/auth/csrf com cookies e
+    reenviar X-CSRF-Token em mutações, inclusive login/cadastro; após login buscar novo token. Em
+    rotas protegidas, autenticação/perfil precedem CSRF. Browser usa credentials: include. CORS
+    ALLOWED_ORIGIN explícita, padrão http://localhost:5173, credenciais habilitadas; helmet e
+    Cache-Control: no-store. JSON limitado a 102400 bytes. Detalhe {data}, lista {data,meta}, erro
+    {error}; 204 sem corpo. Datas civis e limites de período em America/Sao_Paulo. Texto, inclusive
+    marcação, permanece dado JSON; este contrato não comprova renderização de interface. Regras de
+    campos desconhecidos e filtros estão nas operações; valores SQL são parametrizados e nomes de
+    ordenação vêm de mapas internos."
+servers:
+  - url: http://localhost:3000
+    description: HTTP local; PORT configurável.
+paths:
+  /api/health:
+    get:
+      operationId: leia1
+      summary: Liveness independente do banco
+      description: Liveness independente do banco
+      tags:
+        - health
+      x-perfis: []
+      security: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheStatus"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "500":
+          $ref: "#/components/responses/Erro500"
+  /api/ready:
+    get:
+      operationId: leia2
+      summary: Readiness de conexão, sem criação de tabelas
+      description: Readiness de conexão, sem criação de tabelas
+      tags:
+        - ready
+      x-perfis: []
+      security: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheStatus"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/auth/csrf:
+    get:
+      operationId: leia3
+      summary: Obter token CSRF; pode criar sessão anônima
+      description: Obter token CSRF; pode criar sessão anônima
+      tags:
+        - auth
+      x-perfis: []
+      security: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheCsrf"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/auth/login:
+    post:
+      operationId: leia4
+      summary: Login por email e senha
+      description: Somente conta ATIVO. Recusa 401 equivalente para senha incorreta, conta ausente ou
+        indisponível. Passport rotaciona SID e salva antes de responder; buscar novo token CSRF após
+        login.
+      tags:
+        - auth
+      x-perfis: []
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "429":
+          $ref: "#/components/responses/Erro429"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/auth/cadastro:
+    post:
+      operationId: leia5
+      summary: Cadastrar leitor pendente sem login automático
+      description: Aceita exclusivamente nome/email/senha. Define LEITOR/PENDENTE e versão zero. Não autentica.
+      tags:
+        - auth
+      x-perfis: []
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Cadastro"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "429":
+          $ref: "#/components/responses/Erro429"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/auth/me:
+    get:
+      operationId: leia6
+      summary: Identidade segura da sessão
+      description: Identidade segura da sessão
+      tags:
+        - auth
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/auth/logout:
+    post:
+      operationId: leia7
+      summary: Destruir sessão e limpar cookie
+      description: Destruir sessão e limpar cookie
+      tags:
+        - auth
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      responses:
+        "204":
+          description: Sucesso sem corpo e sem Content-Type.
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/usuarios:
+    get:
+      operationId: leia8
+      summary: Listar somente leitores
+      description: Listar somente leitores
+      tags:
+        - usuarios
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Direction"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - id
+              - nome
+              - email
+              - situacao
+              - criadoEm
+            default: id
+        - name: situacao
+          in: query
+          schema:
+            $ref: "#/components/schemas/SituacaoUsuario"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/usuarios/{id}/situacao:
+    patch:
+      operationId: leia9
+      summary: Aprovar, desativar ou reativar leitor
+      description: Só LEITOR. PENDENTE → ATIVO/INATIVO; ATIVO → INATIVO; INATIVO → ATIVO. Repetição
+        idempotente; mudança efetiva incrementa versão na transação, sem restaurar cookies antigos.
+      tags:
+        - usuarios
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SituacaoEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/me:
+    patch:
+      operationId: leia10
+      summary: Alterar apenas o próprio nome
+      description: Alterar apenas o próprio nome
+      tags:
+        - me
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerfilEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheUsuario"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/me/senha:
+    patch:
+      operationId: leia11
+      summary: Alterar senha própria e revogar todas as sessões
+      description: "Senha atual incorreta: 422, sem alterações. Após commit, retorna reauthenticate=true e
+        limpa cookie. Falha de limpeza física não desfaz o commit; revogação por versão permanece
+        válida."
+      tags:
+        - me
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SenhaEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheReautenticar"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/generos:
+    get:
+      operationId: leia12
+      summary: Gêneros de referência
+      description: Ordenação fixa por nome ASC e id ASC.
+      tags:
+        - generos
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaGenero"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/livros:
+    get:
+      operationId: leia13
+      summary: Listar livros
+      description: Ano informado de 1 até ano atual. Anos nulos ao final em ambas as direções. Exclusão e
+        mudança de páginas bloqueadas com qualquer ciclo vinculado; FK RESTRICT. Paginação 12,
+        máximo 50; desempate por id no mesmo sentido.
+      tags:
+        - livros
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Direction"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - titulo
+              - anoPublicacao
+            default: titulo
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 160
+            minLength: 1
+          description: Busca literal em título/autor; % e _ não são curingas.
+        - name: generoId
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaLivro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    post:
+      operationId: leia14
+      summary: Criar livro
+      description: Ano informado de 1 até ano atual. Anos nulos ao final em ambas as direções. Exclusão e
+        mudança de páginas bloqueadas com qualquer ciclo vinculado; FK RESTRICT.
+      tags:
+        - livros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LivroCriacao"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheLivro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/livros/{id}:
+    get:
+      operationId: leia15
+      summary: Detalhar livro
+      description: Detalhar livro
+      tags:
+        - livros
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheLivro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    patch:
+      operationId: leia16
+      summary: Editar parcialmente livro
+      description: Ano informado de 1 até ano atual. Anos nulos ao final em ambas as direções. Exclusão e
+        mudança de páginas bloqueadas com qualquer ciclo vinculado; FK RESTRICT. Campos ausentes são
+        preservados; PATCH vazio/campos extras recusados.
+      tags:
+        - livros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LivroEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheLivro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    delete:
+      operationId: leia17
+      summary: Excluir fisicamente livro
+      description: Ano informado de 1 até ano atual. Anos nulos ao final em ambas as direções. Exclusão e
+        mudança de páginas bloqueadas com qualquer ciclo vinculado; FK RESTRICT.
+      tags:
+        - livros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Sucesso sem corpo e sem Content-Type.
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos:
+    get:
+      operationId: leia18
+      summary: Listar ciclos
+      description: Criação PLANEJADO. Transições manuais PLANEJADO → EM_ANDAMENTO → CONCLUIDO. Iniciar
+        exige período atual e nenhum outro ativo; índice parcial arbitra concorrência. Concluir
+        exige ausência de AGENDADO. Trocar livro/excluir exige ausência de participações/encontros;
+        editar período não deixa encontros fora. Paginação 12, máximo 50; desempate por id no mesmo
+        sentido.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Direction"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - nome
+              - dataInicio
+            default: dataInicio
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+            minLength: 1
+          description: Busca literal por nome.
+        - name: situacao
+          in: query
+          schema:
+            $ref: "#/components/schemas/SituacaoCiclo"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaCiclo"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    post:
+      operationId: leia19
+      summary: Criar ciclo
+      description: Criação PLANEJADO. Transições manuais PLANEJADO → EM_ANDAMENTO → CONCLUIDO. Iniciar
+        exige período atual e nenhum outro ativo; índice parcial arbitra concorrência. Concluir
+        exige ausência de AGENDADO. Trocar livro/excluir exige ausência de participações/encontros;
+        editar período não deixa encontros fora.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CicloCriacao"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheCiclo"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos/{id}:
+    get:
+      operationId: leia20
+      summary: Detalhar ciclo
+      description: Detalhar ciclo
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheCiclo"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    patch:
+      operationId: leia21
+      summary: Editar parcialmente ciclo
+      description: Criação PLANEJADO. Transições manuais PLANEJADO → EM_ANDAMENTO → CONCLUIDO. Iniciar
+        exige período atual e nenhum outro ativo; índice parcial arbitra concorrência. Concluir
+        exige ausência de AGENDADO. Trocar livro/excluir exige ausência de participações/encontros;
+        editar período não deixa encontros fora. Campos ausentes são preservados; PATCH vazio/campos
+        extras recusados.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CicloEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheCiclo"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    delete:
+      operationId: leia22
+      summary: Excluir fisicamente ciclo
+      description: Criação PLANEJADO. Transições manuais PLANEJADO → EM_ANDAMENTO → CONCLUIDO. Iniciar
+        exige período atual e nenhum outro ativo; índice parcial arbitra concorrência. Concluir
+        exige ausência de AGENDADO. Trocar livro/excluir exige ausência de participações/encontros;
+        editar período não deixa encontros fora.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Sucesso sem corpo e sem Content-Type.
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/encontros:
+    get:
+      operationId: leia23
+      summary: Listar encontros
+      description: Criação AGENDADO/futuro em ciclo não concluído, dentro do período local. AGENDADO →
+        REALIZADO apenas após início, ou → CANCELADO. Estados finais não reabrem nem trocam
+        ciclo/início; textos podem ser corrigidos. Troca de ciclo sem inscrições. Exclusão usa
+        CASCADE somente para inscrições. Paginação 12, máximo 50; desempate por id no mesmo sentido.
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/Direction"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - titulo
+              - inicioEm
+            default: inicioEm
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+            minLength: 1
+          description: Busca literal por título.
+        - name: cicloId
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - name: situacao
+          in: query
+          schema:
+            $ref: "#/components/schemas/SituacaoEncontro"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaEncontro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    post:
+      operationId: leia24
+      summary: Criar encontro
+      description: Criação AGENDADO/futuro em ciclo não concluído, dentro do período local. AGENDADO →
+        REALIZADO apenas após início, ou → CANCELADO. Estados finais não reabrem nem trocam
+        ciclo/início; textos podem ser corrigidos. Troca de ciclo sem inscrições. Exclusão usa
+        CASCADE somente para inscrições.
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EncontroCriacao"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheEncontro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/encontros/{id}:
+    get:
+      operationId: leia25
+      summary: Detalhar encontro
+      description: Detalhar encontro
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheEncontro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    patch:
+      operationId: leia26
+      summary: Editar parcialmente encontro
+      description: Criação AGENDADO/futuro em ciclo não concluído, dentro do período local. AGENDADO →
+        REALIZADO apenas após início, ou → CANCELADO. Estados finais não reabrem nem trocam
+        ciclo/início; textos podem ser corrigidos. Troca de ciclo sem inscrições. Exclusão usa
+        CASCADE somente para inscrições. Campos ausentes são preservados; PATCH vazio/campos extras
+        recusados.
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EncontroEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheEncontro"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+    delete:
+      operationId: leia27
+      summary: Excluir fisicamente encontro
+      description: Criação AGENDADO/futuro em ciclo não concluído, dentro do período local. AGENDADO →
+        REALIZADO apenas após início, ou → CANCELADO. Estados finais não reabrem nem trocam
+        ciclo/início; textos podem ser corrigidos. Troca de ciclo sem inscrições. Exclusão usa
+        CASCADE somente para inscrições.
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Sucesso sem corpo e sem Content-Type.
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos/{id}/participacoes:
+    post:
+      operationId: leia28
+      summary: Aderir ao ciclo na página zero
+      description: Identidade da sessão; apenas EM_ANDAMENTO dentro do período. Corpo ausente ou {}.
+        Duplicidade 409.
+      tags:
+        - ciclos
+      x-perfis:
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Vazio"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheParticipacao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos/{id}/minha-participacao:
+    get:
+      operationId: leia29
+      summary: Consultar participação própria
+      description: Histórico consultável após encerramento. Não seleciona usuarioId. Ausência própria 404.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheParticipacao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos/{id}/meu-progresso:
+    patch:
+      operationId: leia30
+      summary: Atualizar progresso próprio
+      description: Participação própria e ciclo/período válidos. Página e conclusão atômicas. Repetir
+        página final preserva data; recuar limpa; concluir novamente data de novo. Cliente não
+        define percentual/concluidaEm/usuarioId.
+      tags:
+        - ciclos
+      x-perfis:
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressoEdicao"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheParticipacao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/ciclos/{id}/participantes:
+    get:
+      operationId: leia31
+      summary: Participantes com dados mínimos de usuário
+      description: Ordem fixa por id ASC. Inclui participações históricas de leitores desativados.
+      tags:
+        - ciclos
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaParticipante"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/me/participacoes:
+    get:
+      operationId: leia32
+      summary: Histórico pessoal de leituras
+      description: Ordem fixa por participação id DESC. Inclui ciclos encerrados e somente identidade da sessão.
+      tags:
+        - me
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaParticipacao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/encontros/{id}/inscricoes:
+    post:
+      operationId: leia33
+      summary: Inscrever o leitor da sessão
+      description: Exige participação no mesmo ciclo EM_ANDAMENTO dentro do período e encontro
+        AGENDADO/futuro. Sem usuarioId no cliente. Duplicidade 409.
+      tags:
+        - encontros
+      x-perfis:
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Vazio"
+      responses:
+        "201":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheInscricao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/encontros/{id}/minha-inscricao:
+    delete:
+      operationId: leia34
+      summary: Cancelar somente a própria inscrição
+      description: Mesmas condições de estado e prazo da inscrição. Ausência própria 404; sem presença,
+        lotação ou lista de espera.
+      tags:
+        - encontros
+      x-perfis:
+        - LEITOR
+      security:
+        - CookieSessao: []
+          TokenCsrf: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Vazio"
+      responses:
+        "204":
+          description: Sucesso sem corpo e sem Content-Type.
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "409":
+          $ref: "#/components/responses/Erro409"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/encontros/{id}/inscritos:
+    get:
+      operationId: leia35
+      summary: Inscritos com dados mínimos de usuário
+      description: Ordem fixa por inscrição id ASC; quantidade consultada, sem contador armazenado.
+      tags:
+        - encontros
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaInscrito"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "404":
+          $ref: "#/components/responses/Erro404"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/me/inscricoes:
+    get:
+      operationId: leia36
+      summary: Histórico pessoal de inscrições
+      description: Ordem por início ASC e inscrição id ASC. Somente identidade da sessão.
+      tags:
+        - me
+      x-perfis:
+        - ADMIN_CLUBE
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: futuros
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Recebe true/false na query; filtra somente início > agora, mantendo situações inclusive
+            CANCELADO. Ausente/false mantém histórico.
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListaInscricao"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/dashboard/admin:
+    get:
+      operationId: leia37
+      summary: Dashboard administrativo
+      description: Um único instante e snapshot REPEATABLE READ. Contagens de leitores LEITOR
+        ativos/pendentes; totais de livros/ciclos; encontros AGENDADOS futuros. Só EM_ANDAMENTO é
+        atual (ou null), mesmo vencido; dentroDoPeriodo indica período. Participações históricas
+        contam, inclusive desativados. Percentuais finais com duas casas, zero sem participantes.
+        Livros mais utilizados limitados a 5 com HAVING mínimo 1; leitores ativos sem adesão
+        limitados a 12 com NOT EXISTS; totais completos. Sem cache.
+      tags:
+        - dashboard
+      x-perfis:
+        - ADMIN_CLUBE
+      security:
+        - CookieSessao: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheDashboardAdmin"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+  /api/dashboard/me:
+    get:
+      operationId: leia38
+      summary: Dashboard pessoal do leitor
+      description: Identidade da sessão, sem query/usuarioId/corpo. Totais em todo histórico, mesmo sem
+        ciclo atual. minhaParticipacao null sem adesão, sem criar automaticamente.
+        podeAtualizarProgresso é informativo e não substitui autorização da escrita. Agenda própria
+        somente AGENDADO/futuro, cinco primeiros por início e inscrição id; total antes do limite.
+        Instante/snapshot únicos, sem cache e sem renovar login.
+      tags:
+        - dashboard
+      x-perfis:
+        - LEITOR
+      security:
+        - CookieSessao: []
+      parameters: []
+      responses:
+        "200":
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetalheDashboardLeitor"
+        "400":
+          $ref: "#/components/responses/Erro400"
+        "401":
+          $ref: "#/components/responses/Erro401"
+        "403":
+          $ref: "#/components/responses/Erro403"
+        "413":
+          $ref: "#/components/responses/Erro413"
+        "422":
+          $ref: "#/components/responses/Erro422"
+        "500":
+          $ref: "#/components/responses/Erro500"
+        "503":
+          $ref: "#/components/responses/Erro503"
+components:
+  securitySchemes:
+    CookieSessao:
+      type: apiKey
+      in: cookie
+      name: leia.sid
+      description: SID assinado e opaco, HttpOnly; sessão anônima somente para CSRF/login/cadastro. Sessão
+        autenticada desserializa perfil/situação/versão atuais.
+    TokenCsrf:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Token hexadecimal de 64 caracteres associado ao SID. Cookie e token devem vir da mesma
+        sessão.
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      description: Identificador inteiro positivo.
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 9007199254740991
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 12
+    Direction:
+      name: direction
+      in: query
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: asc
+  responses:
+    Erro400:
+      description: JSON/corpo malformado ou requisição inválida.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro401:
+      description: Credencial incorreta/conta indisponível ou sessão ausente, expirada ou revogada.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro403:
+      description: Perfil sem permissão ou CSRF ausente/incorreto.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro404:
+      description: Alvo não encontrado, inclusive tentativa de alterar administrador por /usuarios.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro409:
+      description: Duplicidade, dependência, concorrência ou transição conflitante.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro413:
+      description: Corpo excede 102400 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro422:
+      description: Campos extras, PATCH vazio, valores ou referência inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro429:
+      description: Limite de login/cadastro excedido por IP e janela.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+      headers:
+        Retry-After:
+          description: Segundos até liberação da janela.
+          schema:
+            type: string
+            pattern: ^[1-9][0-9]*$
+    Erro500:
+      description: Erro interno seguro.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+    Erro503:
+      description: Banco/store temporariamente indisponível; sem dados inventados.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Erro"
+  schemas:
+    Perfil:
+      type: string
+      enum:
+        - ADMIN_CLUBE
+        - LEITOR
+    SituacaoUsuario:
+      type: string
+      enum:
+        - PENDENTE
+        - ATIVO
+        - INATIVO
+    SituacaoCiclo:
+      type: string
+      enum:
+        - PLANEJADO
+        - EM_ANDAMENTO
+        - CONCLUIDO
+    SituacaoEncontro:
+      type: string
+      enum:
+        - AGENDADO
+        - REALIZADO
+        - CANCELADO
+    Id:
+      type: integer
+      minimum: 1
+      maximum: 2147483647
+    DataCivil:
+      type: string
+      format: date
+      description: Data civil real AAAA-MM-DD. Comparações do clube em America/Sao_Paulo; dia final inclusivo.
+    Senha:
+      type: string
+      maxLength: 72
+      minLength: 10
+      writeOnly: true
+      x-maxUtf8Bytes: 72
+      description: Mínimo 10 caracteres Unicode, máximo 72 bytes UTF-8. Sem trim, normalização ou truncamento.
+    SenhaAtual:
+      type: string
+      maxLength: 72
+      minLength: 1
+      writeOnly: true
+      x-maxUtf8Bytes: 72
+      description: Valor exato da senha; máximo 72 bytes UTF-8.
+    Usuario:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - email
+        - perfil
+        - situacao
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 100
+          minLength: 1
+        email:
+          type: string
+          format: email
+        perfil:
+          $ref: "#/components/schemas/Perfil"
+        situacao:
+          $ref: "#/components/schemas/SituacaoUsuario"
+    UsuarioMinimo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 100
+          minLength: 1
+    Genero:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 60
+          minLength: 1
+    Meta:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - pageSize
+        - total
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+    Erro:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              enum:
+                - BAD_REQUEST
+                - INVALID_JSON
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - PAYLOAD_TOO_LARGE
+                - VALIDATION_ERROR
+                - TOO_MANY_REQUESTS
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+                - INVALID_REFERENCE
+                - DUPLICATE_RESOURCE
+                - RESOURCE_IN_USE
+            message:
+              type: string
+            fields:
+              type: array
+              maxItems: 50
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - field
+                  - message
+                properties:
+                  field:
+                    type: string
+                    maxLength: 120
+                  message:
+                    type: string
+    Status:
+      type: object
+      additionalProperties: false
+      required:
+        - aplicacao
+        - status
+      properties:
+        aplicacao:
+          type: string
+          enum:
+            - Leia+
+        status:
+          type: string
+          enum:
+            - ok
+            - pronto
+    Csrf:
+      type: object
+      additionalProperties: false
+      required:
+        - csrfToken
+      properties:
+        csrfToken:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          description: Associado à sessão. Buscar novamente após login, pois a rotação do SID invalida o token
+            anterior.
+    Login:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - senha
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        senha:
+          $ref: "#/components/schemas/SenhaAtual"
+    Cadastro:
+      type: object
+      additionalProperties: false
+      required:
+        - nome
+        - email
+        - senha
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+          minLength: 2
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        senha:
+          $ref: "#/components/schemas/Senha"
+    PerfilEdicao:
+      type: object
+      additionalProperties: false
+      required:
+        - nome
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+          minLength: 2
+    SenhaEdicao:
+      type: object
+      additionalProperties: false
+      required:
+        - senhaAtual
+        - novaSenha
+      properties:
+        senhaAtual:
+          $ref: "#/components/schemas/SenhaAtual"
+        novaSenha:
+          $ref: "#/components/schemas/Senha"
+    SituacaoEdicao:
+      type: object
+      additionalProperties: false
+      required:
+        - situacao
+      properties:
+        situacao:
+          $ref: "#/components/schemas/SituacaoUsuario"
+    Reautenticar:
+      type: object
+      additionalProperties: false
+      required:
+        - reauthenticate
+      properties:
+        reauthenticate:
+          type: boolean
+          enum:
+            - true
+    Vazio:
+      type: object
+      additionalProperties: false
+      properties: {}
+    LivroCriacao:
+      type: object
+      additionalProperties: false
+      required:
+        - titulo
+        - autor
+        - generoId
+        - totalPaginas
+      properties:
+        titulo:
+          type: string
+          maxLength: 160
+          minLength: 1
+        autor:
+          type: string
+          maxLength: 120
+          minLength: 1
+        generoId:
+          $ref: "#/components/schemas/Id"
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Inteiro positivo; alteração bloqueada enquanto houver qualquer ciclo vinculado.
+        anoPublicacao:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Opcional; máximo validado pelo ano corrente do servidor.
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: HTTPS, sem credenciais ou espaços. O servidor não busca a imagem.
+    LivroEdicao:
+      type: object
+      additionalProperties: false
+      properties:
+        titulo:
+          type: string
+          maxLength: 160
+          minLength: 1
+        autor:
+          type: string
+          maxLength: 120
+          minLength: 1
+        generoId:
+          $ref: "#/components/schemas/Id"
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Inteiro positivo; alteração bloqueada enquanto houver qualquer ciclo vinculado.
+        anoPublicacao:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Opcional; máximo validado pelo ano corrente do servidor.
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: HTTPS, sem credenciais ou espaços. O servidor não busca a imagem.
+      minProperties: 1
+    Livro:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - autor
+        - generoId
+        - totalPaginas
+        - anoPublicacao
+        - descricao
+        - capaUrl
+        - criadoEm
+        - atualizadoEm
+        - genero
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 160
+          minLength: 1
+        autor:
+          type: string
+          maxLength: 120
+          minLength: 1
+        generoId:
+          $ref: "#/components/schemas/Id"
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Inteiro positivo; alteração bloqueada enquanto houver qualquer ciclo vinculado.
+        anoPublicacao:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Opcional; máximo validado pelo ano corrente do servidor.
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: HTTPS, sem credenciais ou espaços. O servidor não busca a imagem.
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        genero:
+          $ref: "#/components/schemas/Genero"
+    LivroCiclo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - autor
+        - totalPaginas
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 160
+        autor:
+          type: string
+          maxLength: 120
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    LivroProgresso:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - totalPaginas
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 160
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    LivroAgenda:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - autor
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 160
+        autor:
+          type: string
+          maxLength: 120
+    CicloCriacao:
+      type: object
+      additionalProperties: false
+      required:
+        - nome
+        - livroId
+        - dataInicio
+        - dataFim
+      properties:
+        nome:
+          type: string
+          maxLength: 120
+          minLength: 1
+        livroId:
+          $ref: "#/components/schemas/Id"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        orientacoes:
+          type: string
+          maxLength: 2000
+          nullable: true
+    CicloEdicao:
+      type: object
+      additionalProperties: false
+      properties:
+        nome:
+          type: string
+          maxLength: 120
+          minLength: 1
+        livroId:
+          $ref: "#/components/schemas/Id"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        orientacoes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        situacao:
+          $ref: "#/components/schemas/SituacaoCiclo"
+      minProperties: 1
+    Ciclo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - livroId
+        - dataInicio
+        - dataFim
+        - orientacoes
+        - situacao
+        - criadoEm
+        - atualizadoEm
+        - livro
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 120
+          minLength: 1
+        livroId:
+          $ref: "#/components/schemas/Id"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        orientacoes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        situacao:
+          $ref: "#/components/schemas/SituacaoCiclo"
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        livro:
+          $ref: "#/components/schemas/LivroCiclo"
+    CicloResumo:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - situacao
+        - dataInicio
+        - dataFim
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 120
+        situacao:
+          $ref: "#/components/schemas/SituacaoCiclo"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+    EncontroCriacao:
+      type: object
+      additionalProperties: false
+      required:
+        - cicloId
+        - titulo
+        - inicioEm
+        - local
+      properties:
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 120
+          minLength: 1
+        inicioEm:
+          type: string
+          format: date-time
+          description: ISO 8601 com offset explícito e precisão máxima de milissegundos. Data local dentro do
+            ciclo.
+        local:
+          type: string
+          maxLength: 180
+          minLength: 1
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+    EncontroEdicao:
+      type: object
+      additionalProperties: false
+      properties:
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 120
+          minLength: 1
+        inicioEm:
+          type: string
+          format: date-time
+          description: ISO 8601 com offset explícito e precisão máxima de milissegundos. Data local dentro do
+            ciclo.
+        local:
+          type: string
+          maxLength: 180
+          minLength: 1
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+        situacao:
+          $ref: "#/components/schemas/SituacaoEncontro"
+      minProperties: 1
+    Encontro:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cicloId
+        - titulo
+        - inicioEm
+        - local
+        - descricao
+        - situacao
+        - criadoEm
+        - atualizadoEm
+        - quantidadeInscritos
+        - ciclo
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 120
+          minLength: 1
+        inicioEm:
+          type: string
+          format: date-time
+          description: ISO 8601 com offset explícito e precisão máxima de milissegundos. Data local dentro do
+            ciclo.
+        local:
+          type: string
+          maxLength: 180
+          minLength: 1
+        descricao:
+          type: string
+          maxLength: 2000
+          nullable: true
+        situacao:
+          $ref: "#/components/schemas/SituacaoEncontro"
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        quantidadeInscritos:
+          type: integer
+          minimum: 0
+        ciclo:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - nome
+            - situacao
+          properties:
+            id:
+              $ref: "#/components/schemas/Id"
+            nome:
+              type: string
+              maxLength: 120
+            situacao:
+              $ref: "#/components/schemas/SituacaoCiclo"
+    EncontroAgenda:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - local
+        - situacao
+        - inicioEm
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 120
+        local:
+          type: string
+          maxLength: 180
+        situacao:
+          $ref: "#/components/schemas/SituacaoEncontro"
+        inicioEm:
+          type: string
+          format: date-time
+    Participacao:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cicloId
+        - paginaAtual
+        - percentual
+        - concluida
+        - concluidaEm
+        - criadoEm
+        - atualizadoEm
+        - ciclo
+        - livro
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        paginaAtual:
+          type: integer
+          minimum: 0
+        percentual:
+          type: number
+          minimum: 0
+          maximum: 100
+        concluida:
+          type: boolean
+        concluidaEm:
+          type: string
+          format: date-time
+          nullable: true
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        ciclo:
+          $ref: "#/components/schemas/CicloResumo"
+        livro:
+          $ref: "#/components/schemas/LivroProgresso"
+    Participante:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cicloId
+        - paginaAtual
+        - percentual
+        - concluida
+        - concluidaEm
+        - criadoEm
+        - atualizadoEm
+        - usuario
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        paginaAtual:
+          type: integer
+          minimum: 0
+        percentual:
+          type: number
+          minimum: 0
+          maximum: 100
+        concluida:
+          type: boolean
+        concluidaEm:
+          type: string
+          format: date-time
+          nullable: true
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        usuario:
+          $ref: "#/components/schemas/UsuarioMinimo"
+    ProgressoEdicao:
+      type: object
+      additionalProperties: false
+      required:
+        - paginaAtual
+      properties:
+        paginaAtual:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: No máximo o total da obra. A conclusão usa página final exata, nunca percentual
+            arredondado.
+    Inscricao:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - encontroId
+        - criadoEm
+        - atualizadoEm
+        - encontro
+        - ciclo
+        - livro
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        encontroId:
+          $ref: "#/components/schemas/Id"
+        criadoEm:
+          type: string
+          format: date-time
+        atualizadoEm:
+          type: string
+          format: date-time
+        encontro:
+          $ref: "#/components/schemas/EncontroAgenda"
+        ciclo:
+          $ref: "#/components/schemas/CicloResumo"
+        livro:
+          $ref: "#/components/schemas/LivroAgenda"
+    Inscrito:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - encontroId
+        - criadoEm
+        - usuario
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        encontroId:
+          $ref: "#/components/schemas/Id"
+        criadoEm:
+          type: string
+          format: date-time
+        usuario:
+          $ref: "#/components/schemas/UsuarioMinimo"
+    CicloAtual:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - situacao
+        - livro
+        - dataInicio
+        - dataFim
+        - dentroDoPeriodo
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 120
+        situacao:
+          type: string
+          enum:
+            - EM_ANDAMENTO
+        livro:
+          $ref: "#/components/schemas/LivroCiclo"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        dentroDoPeriodo:
+          type: boolean
+    Indicadores:
+      type: object
+      additionalProperties: false
+      required:
+        - participantes
+        - leiturasConcluidas
+        - taxaConclusao
+        - progressoMedio
+      properties:
+        participantes:
+          type: integer
+          minimum: 0
+        leiturasConcluidas:
+          type: integer
+          minimum: 0
+        taxaConclusao:
+          type: number
+          minimum: 0
+          maximum: 100
+        progressoMedio:
+          type: number
+          minimum: 0
+          maximum: 100
+    CicloAtualAdmin:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - situacao
+        - livro
+        - dataInicio
+        - dataFim
+        - dentroDoPeriodo
+        - indicadores
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 120
+        situacao:
+          type: string
+          enum:
+            - EM_ANDAMENTO
+        livro:
+          $ref: "#/components/schemas/LivroCiclo"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        dentroDoPeriodo:
+          type: boolean
+        indicadores:
+          $ref: "#/components/schemas/Indicadores"
+      nullable: true
+    LivroUtilizado:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - titulo
+        - autor
+        - generoId
+        - totalPaginas
+        - totalCiclos
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        titulo:
+          type: string
+          maxLength: 160
+        autor:
+          type: string
+          maxLength: 120
+        generoId:
+          $ref: "#/components/schemas/Id"
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        totalCiclos:
+          type: integer
+          minimum: 0
+    DashboardAdmin:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAt
+        - leitores
+        - totalLivros
+        - totalCiclos
+        - encontrosAgendadosFuturos
+        - cicloAtual
+        - livrosMaisUtilizados
+        - leitoresSemParticipacao
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        leitores:
+          type: object
+          additionalProperties: false
+          required:
+            - ativos
+            - pendentes
+          properties:
+            ativos:
+              type: integer
+              minimum: 0
+            pendentes:
+              type: integer
+              minimum: 0
+        totalLivros:
+          type: integer
+          minimum: 0
+        totalCiclos:
+          type: integer
+          minimum: 0
+        encontrosAgendadosFuturos:
+          type: integer
+          minimum: 0
+        cicloAtual:
+          $ref: "#/components/schemas/CicloAtualAdmin"
+        livrosMaisUtilizados:
+          type: object
+          additionalProperties: false
+          required:
+            - data
+            - meta
+            - minimoCiclos
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/LivroUtilizado"
+            meta:
+              $ref: "#/components/schemas/Meta"
+            minimoCiclos:
+              type: integer
+              enum:
+                - 1
+        leitoresSemParticipacao:
+          type: object
+          additionalProperties: false
+          required:
+            - data
+            - meta
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/UsuarioMinimo"
+            meta:
+              $ref: "#/components/schemas/Meta"
+    MinhaParticipacaoDashboard:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - cicloId
+        - paginaAtual
+        - totalPaginas
+        - percentual
+        - concluida
+        - concluidaEm
+        - podeAtualizarProgresso
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        cicloId:
+          $ref: "#/components/schemas/Id"
+        paginaAtual:
+          type: integer
+          minimum: 0
+        totalPaginas:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        percentual:
+          type: number
+          minimum: 0
+          maximum: 100
+        concluida:
+          type: boolean
+        concluidaEm:
+          type: string
+          format: date-time
+          nullable: true
+        podeAtualizarProgresso:
+          type: boolean
+      nullable: true
+    CicloAtualLeitor:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - nome
+        - situacao
+        - livro
+        - dataInicio
+        - dataFim
+        - dentroDoPeriodo
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        nome:
+          type: string
+          maxLength: 120
+        situacao:
+          type: string
+          enum:
+            - EM_ANDAMENTO
+        livro:
+          $ref: "#/components/schemas/LivroCiclo"
+        dataInicio:
+          $ref: "#/components/schemas/DataCivil"
+        dataFim:
+          $ref: "#/components/schemas/DataCivil"
+        dentroDoPeriodo:
+          type: boolean
+      nullable: true
+    DashboardLeitor:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAt
+        - totalParticipacoes
+        - leiturasConcluidas
+        - cicloAtual
+        - minhaParticipacao
+        - agendaFutura
+        - totalInscricoesFuturas
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        totalParticipacoes:
+          type: integer
+          minimum: 0
+        leiturasConcluidas:
+          type: integer
+          minimum: 0
+        cicloAtual:
+          $ref: "#/components/schemas/CicloAtualLeitor"
+        minhaParticipacao:
+          $ref: "#/components/schemas/MinhaParticipacaoDashboard"
+        agendaFutura:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inscricao"
+          maxItems: 5
+        totalInscricoesFuturas:
+          type: integer
+          minimum: 0
+    DetalheStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Status"
+    DetalheCsrf:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Csrf"
+    DetalheUsuario:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Usuario"
+    DetalheReautenticar:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Reautenticar"
+    DetalheLivro:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Livro"
+    DetalheCiclo:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Ciclo"
+    DetalheEncontro:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Encontro"
+    DetalheParticipacao:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Participacao"
+    DetalheInscricao:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/Inscricao"
+    DetalheDashboardAdmin:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/DashboardAdmin"
+    DetalheDashboardLeitor:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: "#/components/schemas/DashboardLeitor"
+    ListaUsuario:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Usuario"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaGenero:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Genero"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaLivro:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Livro"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaCiclo:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ciclo"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaEncontro:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Encontro"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaParticipacao:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Participacao"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaParticipante:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Participante"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaInscricao:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inscricao"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ListaInscrito:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inscrito"
+        meta:
+          $ref: "#/components/schemas/Meta"
+x-erros-sem-segredos: "Sem SQL, stack, hashes, senhas ou credenciais nos erros. Limite por IP: login
+  10 e cadastro 5 tentativas em 15 minutos; Retry-After no 429."

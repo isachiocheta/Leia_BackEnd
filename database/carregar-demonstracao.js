@@ -121,5 +121,5 @@ async function executar() {
   }
 }
 
-if (require.main === module) executar();
+if (require.main === module && !require('../utilitarios/ajuda').exibirAjuda('db:demo')) executar();
 module.exports = { carregarDemonstracaoOpcional };

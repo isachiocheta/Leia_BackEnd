@@ -2,7 +2,7 @@
   "name": "leia-mais-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "API do clube do livro escolar Leia+",
+  "description": "Backend Leia+ de um clube escolar: autenticação por sessão/CSRF, catálogo, ciclos, encontros, leitura e dashboards. Operação e verificação reproduzível: npm run verificar -- --help.",
   "type": "commonjs",
   "main": "app.js",
   "engines": {
@@ -23,7 +23,10 @@
     "db:referencias:reverter": "node --env-file-if-exists=.env database/executar-cli.js db:seed:undo --seed 20261030061000-carregar-generos-referencia.js",
     "db:admin": "node --env-file-if-exists=.env database/bootstrap-administrativo.js",
     "db:demo": "node --env-file-if-exists=.env database/carregar-demonstracao.js",
-    "db:exportar-sql": "node --env-file-if-exists=.env database/exportar-sql.js"
+    "db:exportar-sql": "node --env-file-if-exists=.env database/exportar-sql.js",
+    "verificar": "node --env-file-if-exists=.env verificacao/verificar.js",
+    "verificar:contrato": "node contracts/validar.js",
+    "verificar:instalacao": "node --env-file-if-exists=.env verificacao/instalacao.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -40,7 +43,29 @@
     "sequelize": "^6.37.8"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "13.1.0",
+    "ajv": "8.20.0",
     "sequelize-cli": "^6.6.5",
-    "supertest": "^7.3.1"
+    "supertest": "^7.3.1",
+    "yaml": "2.9.1"
+  },
+  "descricoesComandos": {
+    "verificar": "Verificação final sem Git. Requer Node.js 24, npm, PostgreSQL acessível e pg_dump compatível no PATH. Defina NODE_ENV=test, DATABASE_URL normal e TEST_DATABASE_URL de controle com sufixo _test/_teste e nome distinto; o usuário do banco de controle precisa CREATE DATABASE. As URLs são lidas do ambiente/.env, nunca de argumentos. O banco de controle serve somente para criar bancos temporários de nomes aleatórios; dados existentes nele e no banco normal não são apagados. A verificação copia somente os arquivos fornecidos para /tmp (sem .env, .npmrc, node_modules, chaves ou README), executa npm ci, npm ls, auditoria, contrato, testes principais/integrados, migrations up/down/up e cargas em bancos novos separados; instala por migrations e por SQL e executa bootstrap/demo e smoke HTTP/SQL. Credenciais de teste são geradas em memória. Remove somente os bancos criados pela chamada, sem FORCE, e a cópia temporária. Auditoria informa moderadas; altas/críticas interrompem. --instalado evita a nova cópia/npm ci, para uma instalação limpa já preparada em CI; mantém a criação de bancos isolados. Nenhum bootstrap/demo é executado no startup.",
+    "verificar:instalacao": "Requer dependências instaladas, NODE_ENV=test e URLs normal/controle distintas, PostgreSQL com CREATE DATABASE. Cria dois bancos próprios e vazios: um recebe migrations+referência; o outro recebe 001_schema.sql, 002_reference_data.sql e 003_migration_metadata.sql nessa ordem e confirma reconhecimento pelo CLI. Executa CLI de bootstrap e demo, inicia server.js em porta temporária, usa cookies/CSRF reais para smoke completo e executa as seis consultas BDI com binds e resultados verificados. Não exporta dados nem apaga bancos preexistentes. Senhas/SID/tokens não são impressos. Remove os bancos ao terminar.",
+    "verificar:contrato": "Valida contracts/openapi.yaml com parser YAML e validador OpenAPI 3.0.3; compara as operações com routers reais montados por app.js, sem abrir porta ou conectar ao banco. Testes e smoke verificam schemas de requisição/resposta, paginação numérica e 204 vazio.",
+    "start": "Inicia server.js; app.js somente exporta Express. Primeiro execute npm ci, configure .env conforme .env.example, instale o banco por migrations+referência ou pelos três SQLs em ordem. Defina SESSION_SECRET com pelo menos 32 bytes, DATABASE_URL, NODE_ENV válido, PORT (padrão 3000), ALLOWED_ORIGIN (padrão http://localhost:5173). HTTP local: SESSION_COOKIE_SECURE=false; HTTPS/production: true. Migrations, referência, bootstrap e demo são explícitos. SIGINT/SIGTERM encerram HTTP e conexões. Health independe do banco; ready confere conexão sem criar schema.",
+    "db:admin": "Após migrations, defina ADMIN_NOME, ADMIN_EMAIL e ADMIN_SENHA no ambiente. Normaliza email e gera hash bcrypt assíncrono (10 caracteres..72 bytes UTF-8, sem trim). Cria ADMIN_CLUBE/ATIVO, versão zero; reexecução não troca senha ou promove leitor. Recusa conflito de identidade/perfil. Nunca roda no startup.",
+    "db:demo": "Após migrations e npm run db:referencias, defina DEMO_SENHA_INICIO, DEMO_SENHA_METADE, DEMO_SENHA_FINAL, DEMO_SENHA_SEM_PARTICIPACAO e DEMO_SENHA_PENDENTE (10 caracteres..72 bytes UTF-8, sem trim). DEMO_DATA_BASE é data civil AAAA-MM-DD em America/Sao_Paulo; vazia usa hoje na primeira carga e data registrada nas demais. Emails fixos @leia.example estão em .env.example. Cria somente cinco leitores e domínio demonstrativo; referência é reutilizada. Manifesto técnico permite reexecução sem sobrescrever senha/progresso/datas. Recusa colisões, ausências e outro ciclo ativo; não repara registros editados. Nunca roda no startup.",
+    "db:exportar-sql": "Requer NODE_ENV=test, URLs de controle/normal distintas, CREATE DATABASE e pg_dump no PATH. Cria banco novo, aplica só migrations+referência, confirma ausência de usuários/sessões/demo e gera database/sql/001_schema.sql (DDL), 002_reference_data.sql (referência/sequências) e 003_migration_metadata.sql (histórico/proveniência). Não consulta dados do banco normal. Não exporta bootstrap/demo; remove somente o banco criado. Para instalar SQL, em banco vazio execute psql -v ON_ERROR_STOP=1 -f em cada arquivo na ordem 001/002/003; depois db:migrar/db:referencias reconhecem o estado.",
+    "db:verificar": "Verifica conexão PostgreSQL sem criar tabelas. Usa DATABASE_URL no ambiente normal; NODE_ENV=test exige TEST_DATABASE_URL separado e terminado em _test/_teste. Não faz fallback para o banco normal.",
+    "db:migrar": "Aplica migrations pendentes via sequelize-cli; é a autoridade do schema. Credenciais do ambiente e .sequelizerc. Não usa sync/alter/force.",
+    "db:estado": "Lista o histórico de migrations sem mudar o schema.",
+    "db:referencias": "Seeder padrão somente de gêneros, com histórico no banco e proveniência de IDs criados. Não cria usuários nem demo; reexecução sem duplicação.",
+    "db:reverter": "Rollback exige NODE_ENV=test, banco separado terminado em _test/_teste e destino validado. Para auditoria segura prefira npm run verificar, que usa bancos próprios.",
+    "db:referencias:reverter": "Reversão somente em banco de teste validado. Apaga apenas gêneros com autoria registrada; FK RESTRICT impede remover gênero usado. Referência preexistente reutilizada é preservada.",
+    "test": "Testes principais: node --test testes/*.test.js. Para banco e todas as verificações, use npm run verificar.",
+    "test:integracao": "Exige banco PostgreSQL de teste migrado e isolado. Use npm run verificar para criar automaticamente o destino seguro; não execute contra dados comuns.",
+    "test:migracoes": "Exige banco de teste exclusivo e vazio; exercita rollback de toda a cadeia. npm run verificar cria e remove seu próprio banco para esta checagem.",
+    "test:cargas": "Exige banco exclusivo migrado, vazio e sem referência; testa CLI de referência/bootstrap e reversão. npm run verificar cria o destino adequado."
   }
 }

@@ -90,7 +90,7 @@ async function exportarSql(variaveis = process.env) {
   }
 }
 
-if (require.main === module) exportarSql().then(() => console.info('Três artefatos SQL gerados de banco temporário contendo somente referência.')).catch(() => {
+if (require.main === module && !require('../utilitarios/ajuda').exibirAjuda('db:exportar-sql')) exportarSql().then(() => console.info('Três artefatos SQL gerados de banco temporário contendo somente referência.')).catch(() => {
   console.error('Exportação SQL não concluída. Confira NODE_ENV=test, URLs distintas, pg_dump no PATH e permissão para criar bancos temporários.'); process.exitCode = 1;
 });
 

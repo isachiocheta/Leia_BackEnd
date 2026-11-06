@@ -70,7 +70,7 @@ function iniciarServidor() {
   return servidor;
 }
 
-if (require.main === module) {
+if (require.main === module && !require('./utilitarios/ajuda').exibirAjuda('start')) {
   try {
     iniciarServidor();
   } catch (erro) {

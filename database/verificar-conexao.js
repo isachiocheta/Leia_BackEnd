@@ -14,7 +14,7 @@ async function verificar() {
   }
 }
 
-verificar().catch(() => {
+if (require.main === module && !require('../utilitarios/ajuda').exibirAjuda('db:verificar')) verificar().catch(() => {
   console.error('Não foi possível encerrar a conexão PostgreSQL.');
   process.exitCode = 1;
 });
